@@ -1,0 +1,10 @@
+{
+  "name": "dotnet",
+  "version": "0.1.0",
+  "description": "Slash commands, review/security subagents, guardrail hooks, MCP servers, and skills for .NET 10 development.",
+  "author": {
+    "name": "Marlon Gayle"
+  },
+  "license": "Apache-2.0",
+  "keywords": ["dotnet", "csharp", "aspnetcore", "blazor", "azure", "ddd", "vertical-slice"]
+}
