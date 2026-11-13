@@ -1,0 +1,21 @@
+{
+  "roslyn": {
+    "command": "roslyn-language-server",
+    "args": [
+      "--stdio",
+      "--autoLoadProjects",
+      "--logLevel",
+      "Warning",
+      "--telemetryLevel",
+      "off",
+      "--extensionLogDirectory",
+      "${CLAUDE_PLUGIN_DATA}/roslyn-logs"
+    ],
+    "extensionToLanguage": {
+      ".cs": "csharp"
+    },
+    "startupTimeout": 120000,
+    "requestTimeout": 120000,
+    "maxRestarts": 3
+  }
+}
