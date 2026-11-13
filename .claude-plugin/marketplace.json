@@ -9,8 +9,8 @@
   },
   "plugins": [
     {
-      "name": "dotnet",
-      "source": "./plugins/dotnet",
+      "name": "dotnet-vsa",
+      "source": "./plugins/dotnet-vsa",
       "description": "Slash commands, review/security subagents, guardrail hooks, MCP servers, and skills for .NET 10 development.",
       "version": "0.1.0"
     }
