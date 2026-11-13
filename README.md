@@ -33,6 +33,24 @@ Hooks enforce the conventions that otherwise depend on Claude remembering them. 
 
 All checks come from one script, `scripts/verify-conventions.sh`, which the `verify` skill also runs.
 
+## Agents
+
+Seven subagents that take a change from request to merge decision and documentation. Each hands its work to the next through a file, so you can run them one at a time, stop between steps, or rerun one after a fix.
+
+| Agent | Reads | Writes | What it does |
+|---|---|---|---|
+| `spec-writer` | the request, the codebase | `.ai/specs/<slug>.md` | Writes the spec for a feature or bug fix (bugs add reproduction, root cause and a regression test), including UX and risk notes. No code. |
+| `implementer` | the spec, review reports | code on `feature/<slug>` or `bugfix/<slug>` | Implements the spec with the scaffolding skills and verifies it; later fixes review findings. Leaves changes uncommitted unless asked. |
+| `code-reviewer` | the branch diff, spec, `CLAUDE.md`, `.claude/rules/` | `.ai/reviews/<slug>/code.md` | Conventions, project rules, correctness, performance, tests and spec conformance. Read-only. |
+| `security-reviewer` | the branch diff | `.ai/reviews/<slug>/security.md` | Authorization and IDOR, validation, injection, secrets, auth and CORS changes, data exposure, new packages. Read-only. |
+| `ux-reviewer` | the branch diff, the design doc, the spec's UX section | `.ai/reviews/<slug>/ux.md` | User-facing changes against `DESIGN.md` and WCAG 2.2 AA; "not applicable" when nothing user-facing changed. Read-only. |
+| `approver` | the three reports, the diff | `.ai/reviews/<slug>/decision.md` | Checks the reviews are complete and current, reruns verification, scores risk, and decides MERGE or HUMAN REVIEW. Merges only when `approver.autoMerge` is on. |
+| `documenter` | the decision, spec, reports and code | `docs/features/<slug>.md`, `docs/README.md` | Once a change is approved, writes a tutorial-style guide with the `write-feature-docs` skill. Changes only files under `docs/`. |
+
+A typical run: ask for the spec, then "use the implementer agent on <slug>", then run the three reviewers (they are independent, so they can run in parallel), have the implementer fix any findings and rerun the reviewers, then ask the approver. Once it decides MERGE, run the documenter before merging so the guide ships with the code; docs-only commits after the review do not make the reports stale.
+
+The approver sends a change to a human when any gate fails (dirty tree, missing or stale review, open Critical or High finding, failing verification or checks) or when its risk is above `approver.maxAutoMergeRisk`. Migrations that alter data, authentication and authorization changes, breaking API contract changes and hotfixes are always Critical; any other migration, `Program.cs` pipeline changes, new packages, new anonymous endpoints and infrastructure files are High.
+
 ## Skills
 
 | Skill | Purpose |
@@ -58,6 +76,7 @@ All checks come from one script, `scripts/verify-conventions.sh`, which the `ver
 | `write-handler-tests` | xUnit tests for one handler: success, each error, soft-deleted rows, side effects. |
 | `run-api` | Start the API (and compose services) in the background and wait for `/health`. |
 | `smoke-health` | Check `/health`, the OpenAPI document and that this branch's routes are live. |
+| `write-feature-docs` | Tutorial-style feature guide in `docs/features/<slug>.md`: steps with commands and output, a Mermaid diagram, and endpoint, error, event and configuration reference. |
 | `backlog-sync` | Add or close items in `.ai/backlog.md`. |
 | `install-rules` | Copy the plugin's path-scoped rules into `.claude/rules/` (once the plugin ships rules). |
 
@@ -75,6 +94,8 @@ Discovery works without configuration. To override a path or switch a check off,
   "specsDir": ".ai/specs",
   "reviewsDir": ".ai/reviews",
   "backlogFile": ".ai/backlog.md",
+  "designDoc": "DESIGN.md",
+  "docsDir": "docs",
   "healthUrl": "https://localhost:7143/health",
   "localEnvironment": "Local",
   "appliedMigrationsCommand": "",
@@ -83,10 +104,14 @@ Discovery works without configuration. To override a path or switch a check off,
   "checks": {
     "handlerDi": true, "outbox": true, "endpointAuth": true, "rateLimit": true,
     "softDelete": true, "phantomNav": true, "utcKinds": true, "csproj": true
-  }
+  },
+  "approver": { "autoMerge": false, "maxAutoMergeRisk": "low", "mergeMethod": "squash" }
 }
 ```
 
+- `designDoc` is the design document the `ux-reviewer` and `spec-writer` agents use. Without it they look for `DESIGN.md` or `design.md` at the repo root, then under `docs/`.
+- `docsDir` is where the `documenter` agent and `write-feature-docs` skill write guides (`<docsDir>/features/<slug>.md`) and the index (`<docsDir>/README.md`).
+- `approver.autoMerge: true` lets the `approver` agent run `gh pr merge` when its decision is MERGE and the branch has an open PR. Off by default: the approver decides and reports only. `maxAutoMergeRisk` (`low` or `medium`) is the highest risk it may merge without a person; High and Critical always go to a human.
 - `fast: true` skips the build in the end-of-turn check and keeps only the convention checks.
 - `appliedMigrationsCommand` is a shell command that prints applied migration ids, one per line (for example a `sqlcmd` query against `__EFMigrationsHistory`). When set, session start reports unapplied migrations.
 - Checks switch themselves off where they do not apply: handler DI when handlers are registered by assembly scanning, endpoint authorization when a `FallbackPolicy` is set, soft delete when a global `IsDeleted` query filter exists, and UTC kinds when a model-wide converter exists.

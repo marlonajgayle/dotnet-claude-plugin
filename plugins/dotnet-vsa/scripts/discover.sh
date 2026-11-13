@@ -34,6 +34,7 @@ fi
 echo "TEST_PROJECTS=$(dvsa_test_projects | while read -r t; do rel "$t"; printf ' '; done | sed 's/ $//')"
 echo "SPECS_DIR=$(cfg .specsDir .ai/specs)"
 echo "REVIEWS_DIR=$(cfg .reviewsDir .ai/reviews)"
+echo "DOCS_DIR=$(cfg .docsDir docs)"
 echo "BACKLOG_FILE=$(cfg .backlogFile .ai/backlog.md)"
 echo "LOCAL_ENVIRONMENT=$(cfg .localEnvironment Local)"
 echo "HEALTH_URL=$health"
