@@ -15,6 +15,7 @@
 #     "reviewsDir": ".ai/reviews",
 #     "backlogFile": ".ai/backlog.md",
 #     "designDoc": "DESIGN.md",
+#     "docsDir": "docs",
 #     "healthUrl": "https://localhost:7143/health",
 #     "appliedMigrationsCommand": "",
 #     "fast": false,

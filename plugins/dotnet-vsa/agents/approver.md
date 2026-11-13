@@ -25,7 +25,7 @@ Find the branch and slug as the `review-pr` skill does, and `REVIEWS_DIR` and `S
 1. The branch is a `feature/`, `bugfix/` or `hotfix/` branch, not `main` or `master`.
 2. The working tree is clean (`git status --porcelain` is empty), so what was reviewed is what would merge.
 3. `<REVIEWS_DIR>/<slug>/code.md` and `security.md` exist. `ux.md` exists if any user-facing file changed (`*.razor`, `*.cshtml`, `*.css`, `wwwroot/`, `*.resx`).
-4. Every report's **Commit** equals `git rev-parse HEAD`. A report on an older commit is stale.
+4. Every report's **Commit** equals `git rev-parse HEAD`, or every commit after it changes only files under the docs folder (`docsDir`, default `docs/`), which the `documenter` agent writes after approval. Any other change after the reviewed commit makes the report stale.
 5. No report has an open Critical or High finding, and no verdict is CHANGES REQUESTED.
 6. Verification passes now: invoke the `verify` skill with `changed --tests`. Any FAIL fails the gate. If a test project exists, tests ran and passed.
 7. The spec exists and the code review found no unimplemented requirement.
