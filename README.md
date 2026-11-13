@@ -11,3 +11,7 @@ Claude Code plugin marketplace with an agentic harness for .NET 10 projects. Shi
   ```
 
   Make sure `~/.dotnet/tools` is on the `PATH` of the shell you launch `claude` from.
+
+## Formatting
+
+Every `.cs` file Claude writes or edits is formatted with `dotnet format`, using the nearest `.csproj`, so your `.editorconfig` code style and analyzer settings apply. Files outside a project get whitespace formatting only. Add an `.editorconfig` to your repo to control the style.
