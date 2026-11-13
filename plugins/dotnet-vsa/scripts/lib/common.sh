@@ -14,11 +14,13 @@
 #     "specsDir": ".ai/specs",
 #     "reviewsDir": ".ai/reviews",
 #     "backlogFile": ".ai/backlog.md",
+#     "designDoc": "DESIGN.md",
 #     "healthUrl": "https://localhost:7143/health",
 #     "appliedMigrationsCommand": "",
 #     "fast": false,
 #     "checks": { "handlerDi": true, "outbox": true, "softDelete": true, "endpointAuth": true,
-#                 "rateLimit": true, "phantomNav": true, "utcKinds": true, "csproj": true }
+#                 "rateLimit": true, "phantomNav": true, "utcKinds": true, "csproj": true },
+#     "approver": { "autoMerge": false, "maxAutoMergeRisk": "low", "mergeMethod": "squash" }
 #   }
 #
 # Written for macOS /bin/bash 3.2: no associative arrays, no mapfile, no ${x,,}.

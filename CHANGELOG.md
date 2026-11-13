@@ -25,6 +25,8 @@ Targets `0.1.0`.
 - `scripts/verify-conventions.sh`: the verification checklist as one script shared by the hooks and skills. It checks the build, handler DI, outbox dispatch, endpoint authorization and rate limiting, the soft-delete filter, phantom navigation properties, UTC `DateTime` kinds, `<None Include>` on `.cs` files, and optionally formatting and tests.
 - `scripts/discover.sh` and `scripts/lib/common.sh`: find the solution, API project, `Program.cs`, outbox dispatcher and migrations folder, with overrides in `.claude/dotnet-vsa.json`.
 - 23 skills: `plan`, `implement-feature`, `review-pr`, `verify`, `add-entity`, `add-endpoint`, `add-domain-event`, `register-handler`, `add-background-job`, `ef-core`, `ef-add-migration`, `check-ef-performance`, `fix-utc-kinds`, `audit-authorization`, `security-audit`, `package-health`, `api-contract-diff`, `bootstrap-tests`, `write-handler-tests`, `run-api`, `smoke-health`, `backlog-sync`, `install-rules`.
+- Six subagents in `agents/`: `spec-writer` (feature and bugfix specs), `implementer`, `code-reviewer`, `security-reviewer`, `ux-reviewer` (against the project's `DESIGN.md` and WCAG 2.2 AA) and `approver` (risk-scored MERGE or HUMAN REVIEW decision). They hand off through `.ai/specs/<slug>.md` and `.ai/reviews/<slug>/{code,security,ux,decision}.md`.
+- `designDoc` and `approver` (`autoMerge`, `maxAutoMergeRisk`, `mergeMethod`) keys in `.claude/dotnet-vsa.json`.
 - `jq` and `perl` added to the README prerequisites.
 
 [Unreleased]: https://github.com/marlonajgayle/dotnet-claude-plugin/commits/main
