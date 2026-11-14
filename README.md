@@ -44,11 +44,11 @@ Seven subagents that take a change from request to merge decision and documentat
 | Agent | Reads | Writes | What it does |
 |---|---|---|---|
 | `spec-writer` | the request, the codebase | `.ai/specs/<slug>.md` | Writes the spec for a feature or bug fix (bugs add reproduction, root cause and a regression test), including UX and risk notes. No code. |
-| `implementer` | the spec, review reports | code on `feature/<slug>` or `bugfix/<slug>` | Implements the spec with the scaffolding skills and verifies it; later fixes review findings. Leaves changes uncommitted unless asked. |
+| `implementer` | the spec, review reports (including `review.md` from `review-pr`) | code on `feature/<slug>` or `bugfix/<slug>` | Implements the spec with the scaffolding skills and verifies it; later fixes review findings. Leaves changes uncommitted unless asked. |
 | `code-reviewer` | the branch diff, spec, `CLAUDE.md`, `.claude/rules/` | `.ai/reviews/<slug>/code.md` | Conventions, project rules, correctness, performance, tests and spec conformance. Read-only. |
 | `security-reviewer` | the branch diff | `.ai/reviews/<slug>/security.md` | Authorization and IDOR, validation, injection, secrets, auth and CORS changes, data exposure, new packages. Read-only. |
 | `ux-reviewer` | the branch diff, the design doc, the spec's UX section | `.ai/reviews/<slug>/ux.md` | User-facing changes against `DESIGN.md` and WCAG 2.2 AA; "not applicable" when nothing user-facing changed. Read-only. |
-| `approver` | the three reports, the diff | `.ai/reviews/<slug>/decision.md` | Checks the reviews are complete and current, reruns verification, scores risk, and decides MERGE or HUMAN REVIEW. Merges only when `approver.autoMerge` is on. |
+| `approver` | the three reports, `review.md` if present, the diff | `.ai/reviews/<slug>/decision.md` | Checks the reviews are complete and current, reruns verification, scores risk, and decides MERGE or HUMAN REVIEW. Merges only when `approver.autoMerge` is on. |
 | `documenter` | the decision, spec, reports and code | `docs/features/<slug>.md`, `docs/README.md` | Once a change is approved, writes a tutorial-style guide with the `write-feature-docs` skill. Changes only files under `docs/`. |
 
 A typical run: ask for the spec, then "use the implementer agent on <slug>", then run the three reviewers (they are independent, so they can run in parallel), have the implementer fix any findings and rerun the reviewers, then ask the approver. Once it decides MERGE, run the documenter before merging so the guide ships with the code; docs-only commits after the review do not make the reports stale.
@@ -61,7 +61,7 @@ The approver sends a change to a human when any gate fails (dirty tree, missing 
 |---|---|
 | `plan` | Explore the codebase and write a feature spec to `.ai/specs/<slug>.md`. |
 | `implement-feature` | Implement a spec on a feature branch, then verify. |
-| `review-pr` | Read-only pre-merge review: conventions, security, performance, spec conformance. |
+| `review-pr` | Read-only pre-merge review: conventions, security, performance, spec conformance. Writes `.ai/reviews/<slug>/review.md`. |
 | `verify` | Run the verification checklist and print a pass/fail table. |
 | `add-entity` | Entity, `{Name}Errors`, EF configuration and DbSet, then a migration. |
 | `add-endpoint` | One complete slice (command/query, handler, endpoint, validator) with DI wired. |
@@ -73,7 +73,7 @@ The approver sends a change to a human when any gate fails (dirty tree, missing 
 | `check-ef-performance` | Read-only scan for N+1, missing indexes, unbounded queries and outbox-bypassing bulk updates. |
 | `fix-utc-kinds` | Find and fix `DateTime` values that reach clients without a UTC kind. |
 | `audit-authorization` | Endpoint table with policies and rate limits; flags IDOR candidates. |
-| `security-audit` | Six-layer security audit with a severity-rated report. |
+| `security-audit` | Six-layer security audit with a severity-rated report in `.ai/reviews/_audits/<timestamp>.md`. |
 | `package-health` | Vulnerable, deprecated and outdated NuGet packages. |
 | `api-contract-diff` | Breaking OpenAPI changes on this branch compared with `main`. |
 | `bootstrap-tests` | Create the test project with three conventions tests. |
@@ -219,6 +219,7 @@ Discovery works without configuration. To override a path or switch a check off,
 }
 ```
 
+- `reviewsDir` holds every review report. Each branch gets a folder, `<reviewsDir>/<slug>/`, with the agents' `code.md`, `security.md`, `ux.md` and `decision.md` and the `review-pr` skill's `review.md`. Whole-repository security audits go to `<reviewsDir>/_audits/`; add that folder to `.gitignore`, since audit reports should not be committed.
 - `designDoc` is the design document the `ux-reviewer` and `spec-writer` agents use. Without it they look for `DESIGN.md` or `design.md` at the repo root, then under `docs/`.
 - `docsDir` is where the `documenter` agent and `write-feature-docs` skill write guides (`<docsDir>/features/<slug>.md`) and the index (`<docsDir>/README.md`).
 - `approver.autoMerge: true` lets the `approver` agent run `gh pr merge` when its decision is MERGE and the branch has an open PR. Off by default: the approver decides and reports only. `maxAutoMergeRisk` (`low` or `medium`) is the highest risk it may merge without a person; High and Critical always go to a human.

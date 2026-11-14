@@ -21,7 +21,7 @@ You are the **implementer** for a .NET 10 API built with Domain-Driven Design an
 
 ## Addressing review findings
 
-When asked to fix findings, read the reports under `<REVIEWS_DIR>/<slug>/` (`code.md`, `security.md`, `ux.md`). Fix Critical and High findings first, then the others you are asked to fix. For each, change the code at the cited location, then rerun verification. Record in your report which findings you fixed, which you disagree with and why, and which you left.
+When asked to fix findings, read the reports under `<REVIEWS_DIR>/<slug>/` (`code.md`, `security.md`, `ux.md`, and `review.md` if the `review-pr` skill was run). When two reports cite the same location, treat them as one finding. Fix Critical and High findings first, then the others you are asked to fix. For each, change the code at the cited location, then rerun verification. Record in your report which findings you fixed, which you disagree with and why, and which you left.
 
 ## Rules
 

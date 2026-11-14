@@ -1,6 +1,6 @@
 ---
 name: review-pr
-description: "Read-only pre-merge review of a vertical-slice .NET feature branch. Runs verify-conventions for the mechanical checks, then scores four dimensions (conventions, security, performance, spec conformance) with file:line citations and Critical/High/Medium/Low severity. Writes a report to the reviews folder (default .ai/reviews/<slug>.md) and prints a summary. Does not edit code, commit or push. Use when the user says: review this branch, review-pr, review my PR, code review before merge, check this branch against the spec."
+description: "Read-only pre-merge review of a vertical-slice .NET feature branch. Runs verify-conventions for the mechanical checks, then scores four dimensions (conventions, security, performance, spec conformance) with file:line citations and Critical/High/Medium/Low severity. Writes a report to the reviews folder (default .ai/reviews/<slug>/review.md, beside the reviewer agents' reports) and prints a summary. Does not edit code, commit or push. Use when the user says: review this branch, review-pr, review my PR, code review before merge, check this branch against the spec."
 argument-hint: "[slug]"
 ---
 
@@ -64,11 +64,13 @@ Read every changed `.cs`, `.razor`, `.json` and `.csproj` file in full, plus `<P
 
 Mark anything that can only be confirmed by running the code as **needs verification**. Never guess.
 
-## Step 5: Write `<REVIEWS_DIR>/<slug>.md`
+## Step 5: Write `<REVIEWS_DIR>/<slug>/review.md`
+
+`mkdir -p "<REVIEWS_DIR>/<slug>"`. The report sits beside the reviewer agents' reports (`code.md`, `security.md`, `ux.md`), so the `implementer` and `approver` agents pick it up. **Commit** is `git rev-parse HEAD`; the approver uses it to tell whether the report is current. If an older report exists at `<REVIEWS_DIR>/<slug>.md` (where earlier versions of this skill wrote), say so in the chat summary and leave it in place.
 
 ```markdown
 # Review: <slug>
-**Branch**: <branch> · **Against**: origin/main · **Spec**: <path or "no spec found"> · **Date**: <YYYY-MM-DD>
+**Branch**: <branch> · **Commit**: <sha> · **Against**: origin/main · **Spec**: <path or "no spec found"> · **Date**: <YYYY-MM-DD>
 
 ## Summary
 <Counts by severity and a verdict: ready to merge / needs fixes / blocked.>

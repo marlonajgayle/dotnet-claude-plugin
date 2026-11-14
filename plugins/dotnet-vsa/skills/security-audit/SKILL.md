@@ -1,6 +1,6 @@
 ---
 name: security-audit
-description: "Read-only six-layer security audit of a .NET application: vulnerable and deprecated NuGet packages, secrets in config, OWASP code patterns, authentication and authorization configuration (including per-endpoint policies and IDOR on owner-scoped routes), CORS, and data protection. Writes a severity-rated report with remediation to .claude/security-audits/<timestamp>.md. Use when the user says: security audit, security scan, check for vulnerabilities, find secrets, OWASP, auth review, CORS check, CVE check, hardcoded password, security posture."
+description: "Read-only six-layer security audit of a .NET application: vulnerable and deprecated NuGet packages, secrets in config, OWASP code patterns, authentication and authorization configuration (including per-endpoint policies and IDOR on owner-scoped routes), CORS, and data protection. Writes a severity-rated report with remediation to the reviews folder (default .ai/reviews/_audits/<timestamp>.md). Use when the user says: security audit, security scan, check for vulnerabilities, find secrets, OWASP, auth review, CORS check, CVE check, hardcoded password, security posture."
 ---
 
 # Security Audit
@@ -14,7 +14,7 @@ Read-only. Do not edit source or commit. The only file you write is the report.
 
 ## Phase 0: Discovery
 
-Run `bash "${CLAUDE_SKILL_DIR}/../../scripts/discover.sh"`. Glob all `*.sln`/`*.csproj` and every `Program.cs`. `mkdir -p .claude/security-audits`; the report is `.claude/security-audits/<YYYY-MM-DD-HHMM>.md`. Say in one line that the audit is starting and where the report will go.
+Run `bash "${CLAUDE_SKILL_DIR}/../../scripts/discover.sh"`. Glob all `*.sln`/`*.csproj` and every `Program.cs`. Use `REVIEWS_DIR` from its output: `mkdir -p "<REVIEWS_DIR>/_audits"`; the report is `<REVIEWS_DIR>/_audits/<YYYY-MM-DD-HHMM>.md`. It sits outside the per-branch `<slug>/` folders because the audit covers the whole repository, not one branch. Say in one line that the audit is starting and where the report will go.
 
 ## Layer 1: Packages
 
@@ -97,4 +97,4 @@ Tools and versions, skipped checks and why, files scanned.
 
 ## Chat summary
 
-Counts per severity, the top three findings with links, and the report path. Remediation stays in the report. Never commit the report.
+Counts per severity, the top three findings with links, and the report path. Remediation stays in the report. Never commit the report: if `git check-ignore -q "<REVIEWS_DIR>/_audits"` fails, tell the user to add `<REVIEWS_DIR>/_audits/` to `.gitignore`.
