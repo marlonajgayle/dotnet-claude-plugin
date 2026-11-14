@@ -226,3 +226,22 @@ Discovery works without configuration. To override a path or switch a check off,
 - `appliedMigrationsCommand` is a shell command that prints applied migration ids, one per line (for example a `sqlcmd` query against `__EFMigrationsHistory`). When set, session start reports unapplied migrations.
 - Checks switch themselves off where they do not apply: handler DI when handlers are registered by assembly scanning, endpoint authorization when a `FallbackPolicy` is set, soft delete when a global `IsDeleted` query filter exists, and UTC kinds when a model-wide converter exists.
 - Anonymous endpoints pass the authorization check when marked with a `// anonymous: <reason>` comment.
+
+## Developing the plugin
+
+The hooks and convention checks have a test suite that needs only `bash`, `git`, `jq` and `perl`, with no .NET SDK:
+
+```sh
+bash tests/run.sh                        # everything
+bash tests/run.sh test-guard-bash.sh     # one file
+```
+
+| File | Covers |
+|---|---|
+| `tests/test-guard-bash.sh` | Which Bash commands `guard-bash.sh` blocks and which it leaves alone. |
+| `tests/test-guard-config-secrets.sh` | Secrets in `appsettings*.json`, placeholders, and that a block reason never repeats the secret. |
+| `tests/test-guard-migrations.sh` | Committed, new and snapshot migration files, in a temporary git repository. |
+| `tests/test-conventions.sh` | Every convention check against the fixture API in `tests/fixtures/api`, through `discover.sh`, `verify-conventions.sh`, the post-edit hook and the Stop hook, plus the `.claude/dotnet-vsa.json` switches. |
+| `tests/test-static.sh` | JSON, bash and perl syntax; manifest versions; that every skill and agent has matching frontmatter and a row in this README. |
+
+When you change a hook or a check, add the case to the matching file. GitHub Actions runs the suite on Linux and macOS (including the system bash 3.2) for every pull request, with ShellCheck and `claude plugin validate`.

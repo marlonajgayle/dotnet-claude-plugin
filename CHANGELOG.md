@@ -34,5 +34,11 @@ Targets `0.1.0`.
 - `session-start.sh` lists bundled MCP servers that cannot start (no `dnx`, no `npx`, no GitHub token).
 - README section on MCP servers, with project-level `.mcp.json` snippets for Playwright, Sentry, Azure MCP (Application Insights and Azure Monitor) and Azure DevOps.
 - Node.js and a GitHub token added to the README prerequisites.
+- Test suite for the hooks and convention checks (`tests/run.sh`, needs only `bash`, `git`, `jq` and `perl`) with a fixture API, and a GitHub Actions workflow that runs it on Linux and macOS with ShellCheck and `claude plugin validate`.
+
+### Fixed
+
+- `protectMain: false` and `checks.<name>: false` in `.claude/dotnet-vsa.json` were ignored, so commits on `main` stayed blocked and checks could not be switched off.
+- `guard-bash.sh` no longer blocks a command because `--watch` appears inside a quoted argument (for example a commit message), and allows `docker compose up --wait`, which returns once the services are healthy.
 
 [Unreleased]: https://github.com/marlonajgayle/dotnet-claude-plugin/commits/main

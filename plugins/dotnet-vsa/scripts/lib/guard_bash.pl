@@ -97,8 +97,8 @@ for my $item (@all) {
             && $line !~ /(?:\s--file\b|\.cs(?:\s|$))/ && $line !~ /\s--\s.*--help\b/) { $long = 1; }
         if ($bin =~ /^(npm|yarn|pnpm|bun)$/ && $line =~ /^\S+\s+(?:run\s+)?(?:start|dev|serve|watch)\b/) { $long = 1; }
         if ($line =~ /^(?:npx\s+)?expo\s+start\b/) { $long = 1; }
-        if ($line =~ /(?:^|\s)--watch(?:\s|=true|$)/) { $long = 1; }
-        if ($line =~ /^(?:docker\s+compose|docker-compose)\b.*\sup\b/ && $line !~ /\s(?:-d|--detach|-[a-zA-Z]*d[a-zA-Z]*)(?:\s|$)/) { $long = 1; }
+        if (grep { /^--watch(?:=true)?$/ } @$w) { $long = 1; }   # a whole word, not text inside a quoted argument
+        if ($line =~ /^(?:docker\s+compose|docker-compose)\b.*\sup\b/ && $line !~ /\s(?:-d|--detach|--wait|-[a-zA-Z]*d[a-zA-Z]*)(?:\s|$)/) { $long = 1; }   # --wait implies detached
         if ($line =~ /^(?:docker\s+compose|docker-compose|docker)\b.*\slogs\b.*\s(?:-f|--follow)(?:\s|$)/) { $long = 1; }
         if ($bin eq 'tail' && $line =~ /\s-[a-zA-Z]*[fF]/) { $long = 1; }
         block("dotnet-vsa: `$line` does not exit, so it blocks the shell. Re-run it with run_in_background: true and follow it with Monitor (or use the run-api skill).") if $long;
