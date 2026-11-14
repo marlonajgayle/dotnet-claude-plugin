@@ -4,7 +4,7 @@
     "name": "Marlon Gayle"
   },
   "metadata": {
-    "description": "Agentic harness for .NET 10 projects: DDD + Vertical Slice Architecture for ASP.NET Core, Blazor, and Azure.",
+    "description": "Agentic harness for .NET 10 projects: DDD + Vertical Slice Architecture for ASP.NET Core APIs.",
     "version": "0.1.0"
   },
   "plugins": [

@@ -49,6 +49,7 @@ Targets `0.1.0`.
 
 ### Removed
 
+- Blazor and Azure from the plugin's description, the marketplace description, the README introduction and the manifest keywords. The plugin has no Blazor or Azure skills, so it no longer advertises them. Reviews of `.razor` files, Azure documentation lookups and the optional Azure MCP snippets are unchanged.
 - The `plan`, `implement-feature` and `review-pr` skills, which duplicated the `spec-writer`, `implementer` and `code-reviewer` agents and had drifted from them. Ask for the agents instead ("use the spec-writer agent to …").
 
 [Unreleased]: https://github.com/marlonajgayle/dotnet-claude-plugin/commits/main
