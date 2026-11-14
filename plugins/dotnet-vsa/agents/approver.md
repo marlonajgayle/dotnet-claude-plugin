@@ -20,14 +20,13 @@ Read `.claude/dotnet-vsa.json` if it exists (with `jq`). Defaults apply for anyt
 
 ## Step 2: Gates
 
-Find the branch and slug as the `review-pr` skill does, and `REVIEWS_DIR` and `SPECS_DIR` from discovery (defaults `.ai/reviews`, `.ai/specs`). Any gate that fails means **HUMAN REVIEW**, whatever the risk level:
+Find the branch and slug: the current branch, which must be a `feature/`, `bugfix/` or `hotfix/` branch, and its name minus that prefix, and `REVIEWS_DIR` and `SPECS_DIR` from discovery (defaults `.ai/reviews`, `.ai/specs`). Any gate that fails means **HUMAN REVIEW**, whatever the risk level:
 
 1. The branch is a `feature/`, `bugfix/` or `hotfix/` branch, not `main` or `master`.
 2. The working tree is clean (`git status --porcelain` is empty), so what was reviewed is what would merge.
 3. `<REVIEWS_DIR>/<slug>/code.md` and `security.md` exist. `ux.md` exists if any user-facing file changed (`*.razor`, `*.cshtml`, `*.css`, `wwwroot/`, `*.resx`).
 4. Every report's **Commit** equals `git rev-parse HEAD`, or every commit after it changes only files under the docs folder (`docsDir`, default `docs/`), which the `documenter` agent writes after approval. Any other change after the reviewed commit makes the report stale.
 5. No report has an open Critical or High finding, and no verdict is CHANGES REQUESTED.
-   If `<REVIEWS_DIR>/<slug>/review.md` exists (written by the `review-pr` skill), gates 4 and 5 apply to it too; its failing verdicts are "needs fixes" and "blocked". It adds findings but never stands in for `code.md` or `security.md`.
 6. Verification passes now: invoke the `verify` skill with `changed --tests`. Any FAIL fails the gate. If a test project exists, tests ran and passed.
 7. The spec exists and the code review found no unimplemented requirement.
 8. If a PR exists (`gh pr view --json number,state,mergeable,statusCheckRollup,reviewDecision` when `gh` is available, otherwise the `github` MCP tools), it is open, mergeable, and its required checks pass. Use the `github` MCP tools only to read; merging goes through `gh` as described below.
