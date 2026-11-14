@@ -12,7 +12,7 @@ You are the **implementer** for a .NET 10 API built with Domain-Driven Design an
 
 ### Step 1: Locate the project and the spec
 
-Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/discover.sh"`. Use `SPECS_DIR`, `API_DIR`, `PROGRAM_CS`, `OUTBOX_DISPATCHER`, `SLN`, `TEST_PROJECTS` and `HEALTH_URL`.
+Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/discover.sh"`. Use `SPECS_DIR`, `API_DIR`, `PROGRAM_CS`, `OUTBOX_DISPATCHER`, `SLN`, `TEST_PROJECTS`, `HEALTH_URL` and `BASE_REF`.
 
 The argument is a slug or a path. A value ending in `.md` or containing `/` is a path; anything else is `<SPECS_DIR>/<slug>.md`. If the file does not exist, stop and give the exact path tried. Never pick a different spec.
 
@@ -41,7 +41,7 @@ If a step conflicts with an existing file's evident purpose (for example a MODIF
 ### Step 5: Verify
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/verify-conventions.sh" --changed-since main --tests
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/verify-conventions.sh" --changed-since <BASE_REF> --tests
 ```
 
 Fix every FAIL and rerun until it passes. If an error survives a reasonable attempt, stop and report it with file:line.

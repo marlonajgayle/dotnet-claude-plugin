@@ -12,17 +12,17 @@ Security and UX have their own reviewers (`security-reviewer`, `ux-reviewer`). N
 
 ## Step 1: Scope
 
-Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/discover.sh"`. Use `API_DIR`, `PROGRAM_CS`, `OUTBOX_DISPATCHER`, `AUTH_POLICIES`, `SPECS_DIR` and `REVIEWS_DIR`.
+Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/discover.sh"`. Use `API_DIR`, `PROGRAM_CS`, `OUTBOX_DISPATCHER`, `AUTH_POLICIES`, `SPECS_DIR`, `REVIEWS_DIR` and `BASE_REF`.
 
 - **Branch and slug.** With no argument, use the current branch. If it is `main` or `master`, or not a `feature/`, `bugfix/` or `hotfix/` branch, stop: "Check out the branch to review, or pass its slug." With a slug, check out `feature/<slug>` (or `bugfix/<slug>`, `hotfix/<slug>`), and stop with the names tried if none exists. The slug is the branch name minus its prefix.
 - **Spec.** Read `<SPECS_DIR>/<slug>.md` if it exists; otherwise note "no spec found" and skip spec conformance.
-- **Diff.** In parallel: `git fetch origin main --quiet`, `git diff --stat origin/main...HEAD`, `git diff origin/main...HEAD`, `git log origin/main..HEAD --oneline`, `git status --short`. If the diff and status are both empty, stop: nothing to review.
+- **Diff.** Against `<BASE_REF>` from discovery (`origin/main` when the remote branch exists, otherwise the local base branch). If it starts with `origin/`, run `git fetch origin <BASE_BRANCH> --quiet` first. Then in parallel: `git diff --stat <BASE_REF>...HEAD`, `git diff <BASE_REF>...HEAD`, `git log <BASE_REF>..HEAD --oneline`, `git status --short`. If the diff and status are both empty, stop: nothing to review.
 - **PR.** If the branch has an open PR and the `github` MCP tools are connected, read its description, review comments and latest Actions runs. Each failing job becomes a finding with the job name, the failing step and the error lines from its log. Post comments on the PR only when the user asks.
 
 ## Step 2: Mechanical checks
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/verify-conventions.sh" --changed-since origin/main --no-build
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/verify-conventions.sh" --changed-since <BASE_REF> --no-build
 ```
 
 Every FAIL is a finding: handler-di, outbox and endpoint-auth are **Critical** (silent runtime failure or open endpoint); csproj is **High**. Confirm each WARN by reading the code, then rate it: soft-delete **High**; rate-limit, utc-kinds and phantom-nav **Medium**. Drop false positives and say why.
@@ -75,7 +75,7 @@ Read every changed `.cs`, `.razor`, `.json` and `.csproj` file in full, plus `<P
 
 ```markdown
 # Code review: <slug>
-**Branch**: <branch> · **Commit**: <git rev-parse HEAD> · **Against**: origin/main · **Spec**: <path or "no spec found"> · **Date**: <YYYY-MM-DD>
+**Branch**: <branch> · **Commit**: <git rev-parse HEAD> · **Against**: <BASE_REF> · **Spec**: <path or "no spec found"> · **Date**: <YYYY-MM-DD>
 **Verdict**: PASS | PASS WITH NITS | CHANGES REQUESTED
 **Counts**: Critical N · High N · Medium N · Low N
 

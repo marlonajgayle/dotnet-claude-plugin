@@ -1,0 +1,8 @@
+# Build output, if a template or fixture is ever built in place.
+bin/
+obj/
+
+# claude plugin eval writes a results folder per run.
+plugins/dotnet-vsa/evals/results/
+
+.DS_Store

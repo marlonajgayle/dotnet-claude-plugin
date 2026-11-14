@@ -1,0 +1,63 @@
+name: Plugin evals
+
+# Runs the skill-selection suite in plugins/dotnet-vsa/evals with `claude plugin eval`. Every run
+# is a real model call billed to the ANTHROPIC_API_KEY secret, so this runs only when started by
+# hand (Actions > Plugin evals > Run workflow), for example after changing a skill description.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Only cases with this tag (smoke, confusable, security, tests...). Empty runs every case."
+        required: false
+        default: ""
+      runs:
+        description: "Runs per case per arm"
+        required: false
+        default: "3"
+      max_cost_usd:
+        description: "Stop starting runs once the estimated cost reaches this"
+        required: false
+        default: "15"
+
+permissions:
+  contents: read
+
+jobs:
+  evals:
+    name: Skill selection
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Install Claude Code
+        run: npm install --global @anthropic-ai/claude-code
+      - name: Run the suite
+        working-directory: plugins/dotnet-vsa
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TAG: ${{ inputs.tag }}
+          RUNS: ${{ inputs.runs }}
+          MAX_COST: ${{ inputs.max_cost_usd }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::Set the ANTHROPIC_API_KEY repository secret to run the evals."
+            exit 1
+          fi
+          # A case passes when the right skill fired in two of three runs. Both models are pinned,
+          # so a model rollout is not mistaken for a change in the plugin.
+          set -- . --trust-plugin --scaffold --json results.json --runs "$RUNS" --threshold 0.66 \
+            --model claude-sonnet-5-5 --judge-model claude-haiku-5-5 --no-publish --max-cost-usd "$MAX_COST"
+          [ -n "$TAG" ] && set -- "$@" --tag "$TAG"
+          claude plugin eval "$@"
+      - name: Keep the results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: eval-results
+          path: |
+            plugins/dotnet-vsa/results.json
+            plugins/dotnet-vsa/evals/results/
+          if-no-files-found: ignore

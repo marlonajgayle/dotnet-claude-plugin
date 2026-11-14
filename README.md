@@ -1,5 +1,5 @@
 # dotnet-claude-plugin
-Claude Code plugin marketplace with an agentic harness for .NET 10 projects. Ships slash commands, review and security subagents, guardrail hooks, MCP servers, and skills that enforce Domain-Driven Design with Vertical Slice Architecture, so Claude builds ASP.NET Core APIs the way your team does.
+Claude Code plugin marketplace with an agentic harness for .NET 10 projects. Ships skills (each one also a slash command), review and security subagents, guardrail hooks and MCP servers that enforce Domain-Driven Design with Vertical Slice Architecture, so Claude builds ASP.NET Core APIs the way your team does.
 
 ## Prerequisites
 
@@ -20,7 +20,7 @@ The session-start message lists any bundled MCP server that cannot start because
 
 ## Formatting
 
-Every `.cs` file Claude writes or edits is formatted with `dotnet format`, using the nearest `.csproj`, so your `.editorconfig` code style and analyzer settings apply. Files outside a project get whitespace formatting only. Add an `.editorconfig` to your repo to control the style.
+Every `.cs` file Claude writes or edits is formatted with `dotnet format`, using the nearest `.csproj`, so your `.editorconfig` code style and analyzer settings apply. Files outside a project get whitespace formatting only. Add an `.editorconfig` to your repo to control the style. Edits to any other kind of file never start `dotnet`, so they cost nothing.
 
 ## Hooks
 
@@ -28,12 +28,12 @@ Hooks enforce the conventions that otherwise depend on Claude remembering them. 
 
 | Hook | When | What it does |
 |---|---|---|
-| `session-start.sh` | Session start | Adds context: branch, solution and API paths, migrations (latest, uncommitted, and unapplied if configured), docker compose services, whether a test project exists, and the top three P1 backlog items. Lists bundled MCP servers that cannot start and points Claude at the documentation servers. Records the starting commit. |
-| `guard-bash.sh` | Before Bash | Blocks commands that never exit unless run in the background (`dotnet run`/`watch`, `npm start`, `--watch`, `docker compose up` without `-d`, `tail -f`); commits on `main`/`master`; force-pushes to `main`/`master`; `docker compose down -v` and volume removal; `dotnet ef database drop` and `migrations remove` without `ASPNETCORE_ENVIRONMENT=Local`; `dotnet ef database update` against a non-local connection; `rm -rf` outside `bin/`, `obj/`, `node_modules/` and temp. |
+| `session-start.sh` | Session start | Adds context: branch, solution and API paths, migrations (latest, uncommitted, and unapplied when a trusted `appliedMigrationsCommand` is configured), docker compose services, whether a test project exists, and the top three P1 backlog items. Lists bundled MCP servers that cannot start and points Claude at the documentation servers. Records the starting commit. |
+| `guard-bash.sh` | Before Bash | Blocks commands that never exit unless run in the background (`dotnet run`/`watch`, `npm start`, `--watch`, `docker compose up` without `-d`, `tail -f`); commits on `main`/`master`; force-pushes to `main`/`master`; `docker compose down -v` and volume removal; `dotnet ef database drop` and `migrations remove` without `ASPNETCORE_ENVIRONMENT=Local`; `dotnet ef database update` against a non-local connection or with a non-local `ASPNETCORE_ENVIRONMENT`; `rm -rf` outside `bin/`, `obj/`, `node_modules/` and temp; and, in any repo, commands that destroy work for good: `git reset --hard`, `git clean -f`, `git checkout .` and `git restore .`, `git branch -D`, `git stash clear` and `drop`. |
 | `guard-migrations.sh` | Before Edit/Write | Blocks edits to committed migrations. Asks before a hand edit to the model snapshot unless a new migration sits beside it. |
-| `guard-config-secrets.sh` | Before Edit/Write | Blocks secrets in `appsettings*.json` other than `appsettings.Local.json`: populated secret, password, key or token values, connection strings with passwords or account keys, JWTs, private keys, and long base64 keys. The message names the key, never the value. |
+| `guard-config-secrets.sh` | Before Edit/Write | Blocks secrets in files that get committed: `appsettings*.json` (except `appsettings.Local.json`) and `launchSettings.json`, `.env` files, `*.csproj`/`*.props`/`*.targets`, and C# string literals assigned to secret-looking names or used as signing keys. It finds populated secret, password, key or token values, connection strings with passwords or account keys, JWTs, private keys, AWS keys and long base64 keys. Test projects, migrations and files git ignores are skipped. The message names the key, never the value. |
 | `check-cs-conventions.sh` | After Edit/Write | Advisory feedback on the edited file: unregistered handler, event without an outbox dispatch branch, endpoint without an authorization or rate-limit policy, `AsNoTracking()` without `!IsDeleted`, `= new()` on a navigation property, DTO `DateTime` not stamped UTC, `<None Include>` on a `.cs` file. |
-| `stop-verify.sh` | End of turn | If API code changed this session: builds and runs the convention checks on the changed files. A failing check blocks the turn from ending (at most 3 times in a row), so Claude fixes it before reporting done. |
+| `stop-verify.sh` | End of turn | If API code changed this session: builds and runs the convention checks on the changed files. A failing check blocks the turn from ending (at most 3 times in a row; a new turn starts the count again), so Claude fixes it before reporting done. With `stopTests` set, it also runs `dotnet test`, either for the changed slices or for everything (see [Configuration](#configuration)). |
 
 All checks come from one script, `scripts/verify-conventions.sh`, which the `verify` skill also runs.
 
@@ -51,7 +51,7 @@ Seven subagents that take a change from request to merge decision and documentat
 | `approver` | the three reports, the diff | `.ai/reviews/<slug>/decision.md` | Checks the reviews are complete and current, reruns verification, scores risk, and decides MERGE or HUMAN REVIEW. Merges only when `approver.autoMerge` is on. |
 | `documenter` | the decision, spec, reports and code | `docs/features/<slug>.md`, `docs/README.md` | Once a change is approved, writes a tutorial-style guide with the `write-feature-docs` skill. Changes only files under `docs/`. |
 
-Planning, implementing and reviewing are done by these agents, not by skills. A typical run: ask for the spec, then "use the implementer agent on <slug>", then run the three reviewers (they are independent, so they can run in parallel), have the implementer fix any findings and rerun the reviewers, then ask the approver. Once it decides MERGE, run the documenter before merging so the guide ships with the code; docs-only commits after the review do not make the reports stale.
+Planning, implementing and reviewing are done by these agents, not by skills. The `ship` skill runs the whole sequence for you (`/dotnet-vsa:ship <request>`) and stops wherever a person should decide. To run it by hand: ask for the spec, then "use the implementer agent on <slug>", then run the three reviewers (they are independent, so they can run in parallel), have the implementer fix any findings and rerun the reviewers, then ask the approver. Once it decides MERGE, run the documenter before merging so the guide ships with the code; docs-only commits after the review do not make the reports stale.
 
 The approver sends a change to a human when any gate fails (dirty tree, missing or stale review, open Critical or High finding, failing verification or checks) or when its risk is above `approver.maxAutoMergeRisk`. Migrations that alter data, authentication and authorization changes, breaking API contract changes and hotfixes are always Critical; any other migration, `Program.cs` pipeline changes, new packages, new anonymous endpoints and infrastructure files are High.
 
@@ -83,6 +83,8 @@ The patterns assume slices under `Features/` and entities under `Domain/`. If yo
 
 | Skill | Purpose |
 |---|---|
+| `ship` | Run the whole pipeline for one change: spec, implement, the three reviewers in parallel, fix rounds, approver, documentation. Commits on the branch; stops for you after the spec, on open questions, on unresolved findings and at the decision. |
+| `init-project` | Create a new API with everything the plugin assumes: `Result`, soft delete and audit fields, the outbox, policy classes, endpoint discovery, validation and `.claude/dotnet-vsa.json`, with SQL Server from `compose.yaml`, or with `--aspire` from an Aspire AppHost plus ServiceDefaults (OpenTelemetry to the dashboard, `/alive`, resilient `HttpClient`s). |
 | `verify` | Run the verification checklist and print a pass/fail table. |
 | `add-entity` | Entity, `{Name}Errors`, EF configuration and DbSet, then a migration. |
 | `add-endpoint` | One complete slice (command/query, handler, endpoint, validator) with DI wired. |
@@ -98,7 +100,8 @@ The patterns assume slices under `Features/` and entities under `Domain/`. If yo
 | `package-health` | Vulnerable, deprecated and outdated NuGet packages. |
 | `api-contract-diff` | Breaking OpenAPI changes on this branch compared with `main`. |
 | `bootstrap-tests` | Create the test project with three conventions tests. |
-| `write-handler-tests` | xUnit tests for one handler: success, each error, soft-deleted rows, side effects. |
+| `write-handler-tests` | xUnit tests for one handler against SQLite in memory, from a shipped fixture: success, each error, soft-deleted rows, side effects. |
+| `write-integration-tests` | Endpoint tests through HTTP (`WebApplicationFactory`) against SQL Server in a container (Testcontainers): 401, 403, validation, success, another user's data, soft-deleted rows, outbox dispatch. Needs Docker. |
 | `run-api` | Start the API (and compose services) in the background and wait for `/health`. |
 | `smoke-health` | Check `/health`, the OpenAPI document and that this branch's routes are live. |
 | `write-feature-docs` | Tutorial-style feature guide in `docs/features/<slug>.md`: steps with commands and output, a Mermaid diagram, and endpoint, error, event and configuration reference. |
@@ -225,6 +228,8 @@ Discovery works without configuration. To override a path or switch a check off,
   "specsDir": ".ai/specs",
   "reviewsDir": ".ai/reviews",
   "backlogFile": ".ai/backlog.md",
+  "baseBranch": "main",
+  "appHost": "src/MyApp.AppHost/MyApp.AppHost.csproj",
   "designDoc": "DESIGN.md",
   "docsDir": "docs",
   "healthUrl": "https://localhost:7143/health",
@@ -232,6 +237,8 @@ Discovery works without configuration. To override a path or switch a check off,
   "appliedMigrationsCommand": "",
   "protectMain": true,
   "fast": false,
+  "stopTests": "off",
+  "stopTestsFilter": "Category!=Integration",
   "checks": {
     "handlerDi": true, "outbox": true, "endpointAuth": true, "rateLimit": true,
     "softDelete": true, "phantomNav": true, "utcKinds": true, "csproj": true
@@ -240,13 +247,23 @@ Discovery works without configuration. To override a path or switch a check off,
 }
 ```
 
-- `reviewsDir` holds every review report. Each branch gets a folder, `<reviewsDir>/<slug>/`, with the agents' `code.md`, `security.md`, `ux.md` and `decision.md`. Whole-repository security audits go to `<reviewsDir>/_audits/`; add that folder to `.gitignore`, since audit reports should not be committed.
+- `reviewsDir` holds every review report. Each branch gets a folder, `<reviewsDir>/<slug>/`, with the agents' `code.md`, `security.md`, `ux.md` and `decision.md`. `api-contract-diff` adds `api-contract.md` there. Whole-repository audits (`security-audit`, `check-ef-performance`) go to `<reviewsDir>/_audits/`; add that folder to `.gitignore`, since audit reports should not be committed.
+- `baseBranch` is the branch changes are compared with. Without it, discovery uses the remote's default branch, then `main` or `master`, whichever exists, and diffs against `origin/<base>` when that exists, so a repository with no remote works too.
+- `appHost` is the Aspire AppHost project. Discovery finds a project built with `Aspire.AppHost.Sdk` on its own; when there is one, `run-api` starts it instead of `docker compose`.
 - `designDoc` is the design document the `ux-reviewer` and `spec-writer` agents use. Without it they look for `DESIGN.md` or `design.md` at the repo root, then under `docs/`.
 - `docsDir` is where the `documenter` agent and `write-feature-docs` skill write guides (`<docsDir>/features/<slug>.md`) and the index (`<docsDir>/README.md`).
 - `approver.autoMerge: true` lets the `approver` agent run `gh pr merge` when its decision is MERGE and the branch has an open PR. Off by default: the approver decides and reports only. `maxAutoMergeRisk` (`low` or `medium`) is the highest risk it may merge without a person; High and Critical always go to a human.
 - `fast: true` skips the build in the end-of-turn check and keeps only the convention checks.
-- `appliedMigrationsCommand` is a shell command that prints applied migration ids, one per line (for example a `sqlcmd` query against `__EFMigrationsHistory`). When set, session start reports unapplied migrations.
-- Checks switch themselves off where they do not apply: handler DI when handlers are registered by assembly scanning, endpoint authorization when a `FallbackPolicy` is set, soft delete when a global `IsDeleted` query filter exists, and UTC kinds when a model-wide converter exists.
+- `stopTests` adds `dotnet test` to the end-of-turn check. `"changed"` runs the tests whose names contain a changed slice's folder name (a change in `Features/Orders/CancelOrder/` runs `CancelOrderHandlerTests`, `CancelOrderEndpointTests` and so on); `"all"` runs every test; `"off"` (the default) runs none. A failing test blocks the turn like a failing check. A change outside `Features/` maps to no slice, so `"changed"` runs nothing for it.
+- `stopTestsFilter` is added to that filter. The default, `Category!=Integration`, keeps the Docker-based tests from `write-integration-tests` out of the end-of-turn check; set it to `"none"` to run them too. The Stop hook allows 10 minutes in all.
+- `appliedMigrationsCommand` is a shell command that prints applied migration ids, one per line (for example a `sqlcmd` query against `__EFMigrationsHistory`). It comes from the repository, so session start runs it only after you trust it on your machine, in your own terminal:
+
+  ```sh
+  bash <plugin dir>/scripts/trust-command.sh /path/to/repo
+  ```
+
+  The session-start message prints the command with the plugin's real path. Trust covers that exact command in that repository and is kept in `~/.claude/dotnet-vsa/trusted-commands`; if the command changes, it is untrusted again. `--revoke` forgets it. The Bash guard refuses to run the trust script inside a session.
+- Checks switch themselves off where they do not apply: handler DI when handlers are registered by scanning (Scrutor's `Scan`, `AddClasses`, MediatR, Wolverine, or a helper named `Add…HandlersFrom…`), endpoint authorization when a `FallbackPolicy` is set, soft delete when a global `IsDeleted` query filter exists, and UTC kinds when a model-wide converter exists.
 - Anonymous endpoints pass the authorization check when marked with a `// anonymous: <reason>` comment.
 
 ## Developing the plugin
@@ -265,6 +282,24 @@ bash tests/run.sh test-guard-bash.sh     # one file
 | `tests/test-guard-migrations.sh` | Committed, new and snapshot migration files, in a temporary git repository. |
 | `tests/test-conventions.sh` | Every convention check against the fixture API in `tests/fixtures/api`, through `discover.sh`, `verify-conventions.sh`, the post-edit hook and the Stop hook, plus the `.claude/dotnet-vsa.json` switches. |
 | `tests/test-session-start.sh` | The session-start context, including the notice for rules that are missing or older than the plugin. |
+| `tests/test-stop-tests.sh` | The Stop hook's `stopTests` modes and filters, with a fake `dotnet` that records each call. |
+| `tests/test-init-project.sh` | What `init-project`'s scaffold writes and refuses, its generated secrets, and that discovery and the checks understand the result. |
 | `tests/test-static.sh` | JSON, bash and perl syntax; manifest versions; that every skill, agent and rule has valid frontmatter and a row in this README. |
+| `tests/test-format-hook.sh` | That the format hook starts `dotnet format` for C# files only, with a fake `dotnet`. |
+| `tests/test-evals.sh` | That the eval suite is well formed: prompts, graders, the skills they name, and the shared workspace. |
 
-When you change a hook or a check, add the case to the matching file. GitHub Actions runs the suite on Linux and macOS (including the system bash 3.2) for every pull request, with ShellCheck and `claude plugin validate`.
+`tests/e2e/run.sh` goes further and needs the .NET 10 SDK, network access and Docker: it scaffolds a project with `init-project`'s template, adds the packages, builds it, adds a sample slice, checks that every convention check passes, runs handler tests built from `write-handler-tests`' templates on SQLite, creates the integration test project from `write-integration-tests`' templates and runs it against SQL Server, and finally scaffolds and builds the `--aspire` variant. Run it after changing any template (`--no-docker` skips the SQL Server tests, `--no-aspire` the Aspire build).
+
+### Evals
+
+`plugins/dotnet-vsa/evals/` is a [`claude plugin eval`](https://code.claude.com/docs/en/plugin-evals) suite. Each case is a request phrased the way a person would type it, and its graders check that the right skill loaded and, for skills that are easy to confuse (`smoke-health` and `run-api`, `package-health` and `security-audit`, handler and integration tests), that the other one did not. Two cases check that no skill loads for an unrelated question. Most cases start from a small API in a git repository, created by the case's `workspace.sh` when you pass `--scaffold`.
+
+```sh
+cd plugins/dotnet-vsa
+claude plugin eval . --scaffold                              # every case, with and without the plugin
+claude plugin eval . --scaffold --tag confusable --runs 1    # a quick look at one group
+```
+
+It needs Claude Code 2.1.269 or later, and every run is a model call on your account. Run it after changing a skill's `description`. The *Plugin evals* workflow runs it in GitHub Actions when started by hand, with the `ANTHROPIC_API_KEY` repository secret. Change `evals/_shared/workspace.sh` and copy it into each case; `test-evals.sh` checks the copies match.
+
+When you change a hook or a check, add the case to the matching file. `CLAUDE.md` at the repository root has the rest of the contributor rules. GitHub Actions runs the suite on Linux and macOS (including the system bash 3.2) for every pull request, with ShellCheck, `claude plugin validate` and the end-to-end script.
