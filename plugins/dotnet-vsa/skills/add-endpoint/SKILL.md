@@ -6,7 +6,7 @@ argument-hint: "<get|list|create|update|delete> <Domain>.<Name> [--anon] [--no-v
 
 # Add Endpoint
 
-Scaffolds a single slice for when the user already knows what they want and a spec (`plan` / `implement-feature`) is overkill. The result builds clean with DI wired.
+Scaffolds a single slice for when the user already knows what they want and a spec (the `spec-writer` and `implementer` agents) is overkill. The result builds clean with DI wired.
 
 Arguments: `$ARGUMENTS`
 

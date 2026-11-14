@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The Agent Verification Checklist as a script. Used by the `verify` skill, the Stop hook
-# and implement-feature, so all three share one implementation.
+# and the implementer and reviewer agents, so all of them share one implementation.
 #
 # Usage: verify-conventions.sh [options]
 #   --root DIR            repo to verify (default: current directory)

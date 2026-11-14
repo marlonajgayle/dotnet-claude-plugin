@@ -89,8 +89,17 @@ for name in $(sed -n '/^## Rules/,/^## Skills/p' README.md | sed -n 's/^| `\([a-
 done
 
 # Plugin scripts that skills and agents tell Claude to run exist.
-for rel in $(grep -rhoE '\$\{CLAUDE_SKILL_DIR\}/\.\./\.\./scripts/[A-Za-z0-9_./-]+' "$PLUGIN_DIR/skills" "$PLUGIN_DIR/agents" | sed 's|.*/\.\./\.\./||' | sort -u); do
-  if [ -f "$PLUGIN_DIR/$rel" ]; then ok; else bad "a skill names a missing script: $rel"; fi
+for rel in $( { grep -rhoE '\$\{CLAUDE_SKILL_DIR\}/\.\./\.\./(scripts|rules)/[A-Za-z0-9_./-]*' "$PLUGIN_DIR/skills" "$PLUGIN_DIR/agents" | sed 's|.*/\.\./\.\./||'
+                 grep -rhoE '\$\{CLAUDE_PLUGIN_ROOT\}/(scripts|rules)/[A-Za-z0-9_./-]*' "$PLUGIN_DIR/skills" "$PLUGIN_DIR/agents" | sed 's|^.*CLAUDE_PLUGIN_ROOT}/||'; } | sort -u); do
+  if [ -e "$PLUGIN_DIR/$rel" ]; then ok; else bad "a skill or agent names a missing plugin file: $rel"; fi
+done
+
+# Skills and agents named as "the `x` skill" or "the `x` agent" anywhere in the plugin exist.
+for name in $(grep -rhoE 'the `[a-z][a-z0-9-]*` (skill|agent)' "$PLUGIN_DIR/skills" "$PLUGIN_DIR/agents" "$PLUGIN_DIR/rules" "$PLUGIN_DIR/hooks" | sed -E 's/the `([a-z0-9-]+)` (skill|agent)/\1:\2/' | sort -u); do
+  n="${name%%:*}"; kind="${name##*:}"
+  if [ "$kind" = skill ] && [ -f "$PLUGIN_DIR/skills/$n/SKILL.md" ]; then ok
+  elif [ "$kind" = agent ] && [ -f "$PLUGIN_DIR/agents/$n.md" ]; then ok
+  else bad "the plugin names a $kind that does not exist: $n"; fi
 done
 
 t_done
