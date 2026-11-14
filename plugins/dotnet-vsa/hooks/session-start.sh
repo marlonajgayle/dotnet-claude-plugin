@@ -95,6 +95,20 @@ if [ -f "$root/$backlog" ]; then
   [ -n "$p1" ] && { echo "- Top P1 items in $backlog:"; echo "$p1"; }
 fi
 
+# Path-scoped rules: Claude Code loads them from the project, so they have to be installed there.
+if ls "$DVSA_PLUGIN_ROOT"/rules/*.md >/dev/null 2>&1; then
+  plugin_version="$(jq -r '.version // empty' "$DVSA_PLUGIN_ROOT/.claude-plugin/plugin.json" 2>/dev/null)"
+  rules_source="$root/.claude/rules/dotnet-vsa/.source"
+  if [ ! -f "$rules_source" ]; then
+    echo "- Rules: the plugin's path-scoped rules are not installed in this repo. Offer to run the install-rules skill once; do not install them unasked."
+  else
+    installed_version="$(head -n 1 "$rules_source" | tr -d '[:space:]')"
+    if [ -n "$plugin_version" ] && [ "$installed_version" != "$plugin_version" ]; then
+      echo "- Rules: .claude/rules/dotnet-vsa/ was installed from dotnet-vsa ${installed_version:-an unknown version}; the plugin is now $plugin_version. The install-rules skill shows what changed (install-rules --check)."
+    fi
+  fi
+fi
+
 mcp_missing=""
 dvsa_have dnx || mcp_missing="$mcp_missing nuget (needs dnx from the .NET 10 SDK);"
 dvsa_have npx || mcp_missing="$mcp_missing context7 (needs npx from Node.js);"
