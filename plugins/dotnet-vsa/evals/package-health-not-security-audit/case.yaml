@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: package-health-not-security-audit
+context:
+  scaffold_script: workspace.sh

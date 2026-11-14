@@ -10,17 +10,17 @@ Runs `scripts/verify-conventions.sh`, the same checks the Stop hook runs at the 
 
 Arguments: `$ARGUMENTS`
 
-- `changed` (default when on a feature branch): only files changed against `main`, plus untracked ones.
-- `full` (default on `main`): the whole API project.
+- `changed` (default when on a feature branch): only files changed against the base branch (`BASE_REF` from `scripts/discover.sh`), plus untracked ones.
+- `full` (default on the base branch): the whole API project.
 - `--format`: also `dotnet format --verify-no-changes`. `--tests`: also `dotnet test`. `--no-build`: skip the build.
 
 ## Step 1: Run
 
 ```bash
-bash "${CLAUDE_SKILL_DIR}/../../scripts/verify-conventions.sh" [--changed-since main] [--format] [--tests] [--no-build]
+bash "${CLAUDE_SKILL_DIR}/../../scripts/verify-conventions.sh" [--changed-since <BASE_REF>] [--format] [--tests] [--no-build]
 ```
 
-Use `--changed-since main` for `changed`, or `--changed-since master` if the repo's default branch is `master`. Exit codes: 0 means no FAIL; 1 means at least one FAIL; 3 means no ASP.NET Core project was found (say so and stop).
+For `changed`, get `BASE_REF` from `bash "${CLAUDE_SKILL_DIR}/../../scripts/discover.sh"` and pass `--changed-since <BASE_REF>`. Exit codes: 0 means no FAIL; 1 means at least one FAIL; 3 means no ASP.NET Core project was found (say so and stop).
 
 ## Step 2: Show the result
 

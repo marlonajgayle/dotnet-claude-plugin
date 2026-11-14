@@ -1,6 +1,6 @@
 ---
 name: run-api
-description: "Start the ASP.NET Core API in the background (plus docker compose services with -d when the repo has a compose file), poll /health until it answers, and report the URL, log path and shell id for Monitor. Never blocks the turn. 'run-api stop' stops it. Use when the user wants to run the API locally, observe runtime behaviour, or before smoke-health: run the api, start the app, boot the api, launch locally."
+description: "Start the ASP.NET Core API in the background (through its Aspire AppHost when it has one, otherwise with docker compose services started with -d when the repo has a compose file), poll /health until it answers, and report the URL, log path and shell id for Monitor. Never blocks the turn. 'run-api stop' stops it. Use when the user wants to run the API locally, observe runtime behaviour, or before smoke-health: run the api, start the app, boot the api, launch locally."
 argument-hint: "[stop] [--no-infra] [--profile <launch-profile>]"
 ---
 
@@ -12,7 +12,7 @@ Arguments: `$ARGUMENTS`
 
 ## Step 0: Locate the project
 
-Run `bash "${CLAUDE_SKILL_DIR}/../../scripts/discover.sh"`. Use `ROOT`, `API_PROJECT`, `API_DIR` and `HEALTH_URL`. If `HEALTH_URL` is empty, read `Properties/launchSettings.json` and `Program.cs` for the URL and the health route (`MapHealthChecks("...")`); if there is still none, you will poll the root URL instead and say so.
+Run `bash "${CLAUDE_SKILL_DIR}/../../scripts/discover.sh"`. Use `ROOT`, `API_PROJECT`, `API_DIR`, `APP_HOST` and `HEALTH_URL`. If `HEALTH_URL` is empty, read `Properties/launchSettings.json` and `Program.cs` for the URL and the health route (`MapHealthChecks("...")`); if there is still none, you will poll the root URL instead and say so.
 
 ## Stop
 
@@ -27,7 +27,15 @@ If the arguments start with `stop`: for each `.claude/run-api/*.shell`, stop tha
 
 ## Step 2: Infrastructure
 
-If services are down: `docker compose up -d` (always `-d`). Wait with a bounded loop rather than a blind sleep. Services with a healthcheck report `"Health":"starting"` until ready:
+**With an Aspire AppHost** (`APP_HOST` is set): skip this step and Step 3, and start the AppHost instead. It starts SQL Server (Docker or Podman must be running) and the API with the API's own launch profile, so `HEALTH_URL` is unchanged:
+
+```bash
+dotnet run --project <APP_HOST> --launch-profile https > .claude/run-api/api.log 2>&1
+```
+
+with `run_in_background: true`; save the shell id to `.claude/run-api/api.shell` and go on to Step 4. The first run pulls the SQL Server image, so allow up to 3 minutes (90 rounds) in Step 4. Report the dashboard URL as well: the AppHost prints `Login to the dashboard at <url>` in the log. Stopping the AppHost stops the API; the SQL Server container is persistent and keeps running, which is intended.
+
+**Otherwise:** If services are down: `docker compose up -d` (always `-d`). Wait with a bounded loop rather than a blind sleep. Services with a healthcheck report `"Health":"starting"` until ready:
 
 ```bash
 for i in $(seq 1 30); do docker compose ps --format json | grep -q '"Health":"starting"' || break; sleep 2; done
@@ -60,6 +68,7 @@ for i in $(seq 1 45); do curl -ksf -o /dev/null <HEALTH_URL> && break; sleep 2; 
 | URL | <base url> |
 | Health | 200 (<n> s to ready) |
 | OpenAPI | <base>/openapi/v1.json (or /scalar, /swagger) |
+| Dashboard | <Aspire dashboard URL, when an AppHost runs> |
 | Log | .claude/run-api/api.log |
 | Shell | <id> (follow with Monitor) |
 Next: smoke-health, or call the changed endpoints. Stop with `run-api stop`.

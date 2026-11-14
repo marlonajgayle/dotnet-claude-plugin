@@ -1,6 +1,6 @@
 ---
 name: check-ef-performance
-description: "Read-only EF Core performance audit: N+1 queries, missing indexes, unbounded queries, cartesian explosion, tracking on read paths, missing !IsDeleted, ExecuteUpdate/ExecuteDelete on event-raising aggregates, missing CancellationToken, CountAsync() > 0. Writes a severity-rated report to .claude/ef-performance/<timestamp>.md. No edits, no dotnet, no database. Use when the user says: check ef performance, EF performance audit, N+1 check, slow query review."
+description: "Read-only EF Core performance audit: N+1 queries, missing indexes, unbounded queries, cartesian explosion, tracking on read paths, missing !IsDeleted, ExecuteUpdate/ExecuteDelete on event-raising aggregates, missing CancellationToken, CountAsync() > 0. Writes a severity-rated report to the reviews folder (default .ai/reviews/_audits/ef-performance-<timestamp>.md). No edits, no dotnet, no database. Use when the user says: check ef performance, EF performance audit, N+1 check, slow query review."
 argument-hint: "[full]"
 ---
 
@@ -8,7 +8,7 @@ argument-hint: "[full]"
 
 Read-only static audit. Do not edit source, run `dotnet` or touch a database. The only file you write is the report.
 
-Scope from `$ARGUMENTS`: empty means `.cs` files changed against `origin/main` (falling back to the full scan when that is empty or you are on `main`); `full` means every `.cs` under the API project except `bin/`, `obj/` and `Migrations/`.
+Scope from `$ARGUMENTS`: empty means `.cs` files changed against `BASE_REF` from discovery (falling back to the full scan when that is empty or you are on the base branch); `full` means every `.cs` under the API project except `bin/`, `obj/` and `Migrations/`.
 
 Severity: **Critical** silent data loss or a guaranteed problem at scale; **High** measurable cost or convention miss; **Medium** best-practice violation; **Low** defence in depth; **Info** observation or skipped check.
 
@@ -16,13 +16,13 @@ Every finding cites a clickable `[file.cs:LN](path#LLN)`. Never fabricate: if a 
 
 ## Phase 0: Discovery
 
-1. Run `bash "${CLAUDE_SKILL_DIR}/../../scripts/discover.sh"`; use `API_DIR`, `DBCONTEXT`.
+1. Run `bash "${CLAUDE_SKILL_DIR}/../../scripts/discover.sh"`; use `API_DIR`, `DBCONTEXT`, `BASE_REF` and `REVIEWS_DIR`.
 2. Resolve the file set for the scope.
 3. **Index map**: read every `*Configuration.cs` implementing `IEntityTypeConfiguration<T>`. Record each entity's `HasIndex` properties and its `HasForeignKey` properties (EF indexes those by convention).
 4. **Soft-deletable set**: entities deriving from the base type that declares `IsDeleted`.
 5. **Event-raising set**: entities deriving from `AggregateRoot<>`, plus any entity calling `Raise(new `.
 6. **High-volume set**: infer from names and domain (orders, transactions, logs, outbox, users, messages, appointments); mark the rest low-volume. List both in the report.
-7. `mkdir -p .claude/ef-performance`; the report is `.claude/ef-performance/<YYYY-MM-DD-HHMM>.md`. Say in one line what scope you are scanning and where the report will go.
+7. `mkdir -p "<REVIEWS_DIR>/_audits"`; the report is `<REVIEWS_DIR>/_audits/ef-performance-<YYYY-MM-DD-HHMM>.md`, beside the security audits. Like them it covers more than one branch, so it is not committed. Say in one line what scope you are scanning and where the report will go.
 
 ## Checks
 

@@ -8,6 +8,7 @@
 #   --no-build            skip `dotnet build`
 #   --format              also run `dotnet format --verify-no-changes`
 #   --tests               also run `dotnet test` when a test project exists
+#   --test-filter EXPR    pass EXPR to `dotnet test --filter` (implies --tests)
 #
 # Prints a pass/fail table, the findings, and a one-line summary. Exit 0 when nothing
 # FAILs (WARN does not fail), 1 when something does, 3 when no API project was found.
@@ -19,7 +20,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/conventions.sh
 . "$SCRIPT_DIR/lib/conventions.sh"
 
-ROOT_ARG="$PWD"; SINCE=""; DO_BUILD=1; DO_FORMAT=0; DO_TESTS=0
+ROOT_ARG="$PWD"; SINCE=""; DO_BUILD=1; DO_FORMAT=0; DO_TESTS=0; TEST_FILTER=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --root) ROOT_ARG="$2"; shift 2 ;;
@@ -27,7 +28,8 @@ while [ $# -gt 0 ]; do
     --no-build) DO_BUILD=0; shift ;;
     --format) DO_FORMAT=1; shift ;;
     --tests) DO_TESTS=1; shift ;;
-    -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
+    --test-filter) DO_TESTS=1; TEST_FILTER="$2"; shift 2 ;;
+    -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
     *) echo "verify-conventions: unknown option $1" >&2; exit 64 ;;
   esac
 done
@@ -99,10 +101,22 @@ TEST_PROJECTS="$(dvsa_test_projects)"
 if [ -z "$TEST_PROJECTS" ]; then
   TEST_STATUS="NONE"; TEST_DETAIL="no test project (bootstrap-tests)"
 elif [ "$DO_TESTS" = 1 ]; then
-  out="$(dotnet test "$TARGET" -nologo -v q 2>&1)"; rc=$?
+  if [ -n "$TEST_FILTER" ]; then
+    out="$(dotnet test "$TARGET" -nologo -v q --filter "$TEST_FILTER" 2>&1)"; rc=$?
+  else
+    out="$(dotnet test "$TARGET" -nologo -v q 2>&1)"; rc=$?
+  fi
   summary="$(printf '%s\n' "$out" | grep -E '(Passed|Failed)!|Total tests|total:' | tail -n 1 | sed 's/^[[:space:]]*//')"
-  if [ $rc -eq 0 ]; then TEST_STATUS="PASS"; else TEST_STATUS="FAIL"; conv_emit FAIL tests "-" "${summary:-dotnet test failed}" >> "$FINDINGS"; fi
-  TEST_DETAIL="${summary:-exit $rc}"
+  if [ $rc -ne 0 ]; then
+    TEST_STATUS="FAIL"; conv_emit FAIL tests "-" "${summary:-dotnet test failed}" >> "$FINDINGS"
+    TEST_DETAIL="${summary:-exit $rc}"
+  elif [ -z "$summary" ]; then
+    # dotnet test exits 0 when a filter matches nothing. That is not a pass.
+    TEST_STATUS="SKIP"; TEST_DETAIL="no tests ran"
+  else
+    TEST_STATUS="PASS"; TEST_DETAIL="$summary"
+  fi
+  [ -n "$TEST_FILTER" ] && TEST_DETAIL="$TEST_DETAIL (filter: $TEST_FILTER)"
 else
   TEST_STATUS="SKIP"; TEST_DETAIL="$(printf '%s\n' "$TEST_PROJECTS" | wc -l | tr -d ' ') test project(s); pass --tests to run"
 fi

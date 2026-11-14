@@ -92,6 +92,37 @@ allows 'git push --force-with-lease'
 allows 'git push -u origin feature/orders'
 allows 'git push origin main' "$api_main"            # a plain push is the remote's call
 
+# Commands that throw away work for good, in any repo.
+blocks 'git reset --hard' 'git reset --hard'
+blocks 'git reset --hard origin/main'
+blocks 'git fetch && git reset --hard @{u}'
+blocks 'git reset --hard' '' "$plain_main"
+blocks 'git clean -fdx' 'git clean -f'
+blocks 'git clean -f'
+blocks 'git clean --force -d'
+blocks 'git checkout -- .' 'git checkout .'
+blocks 'git checkout .'
+blocks 'git checkout HEAD -- .'
+blocks 'git restore .' 'git restore .'
+blocks 'git restore --staged --worktree .'
+blocks 'git branch -D feature/old' 'git branch -d'
+blocks 'git branch -df feature/old'
+blocks 'git branch --delete --force feature/old'
+blocks 'git stash clear'
+blocks 'git stash drop stash@{0}'
+allows 'git reset --soft HEAD~1'
+allows 'git reset HEAD src/Fixture.Api/Program.cs'
+allows 'git clean -n'
+allows 'git clean -fdn'
+allows 'git checkout -- src/Fixture.Api/Program.cs'
+allows 'git checkout feature/orders'
+allows 'git restore src/Fixture.Api/Program.cs'
+allows 'git restore --staged .'
+allows 'git branch -d feature/old'
+allows 'git stash'
+allows 'git stash pop'
+allows 'git commit -m "fix: stop git reset --hard in scripts"'
+
 # --- docker volumes ------------------------------------------------------------------------
 blocks 'docker compose down -v' 'volume'
 blocks 'docker compose down --volumes'
@@ -114,6 +145,13 @@ allows 'ASPNETCORE_ENVIRONMENT=Local dotnet ef migrations remove'
 allows 'dotnet ef database drop --environment Local'
 allows 'ASPNETCORE_ENVIRONMENT=Dev dotnet ef database drop' "$custom_env"
 allows 'dotnet ef database update'
+blocks 'ASPNETCORE_ENVIRONMENT=Production dotnet ef database update' "environment 'Production'"
+blocks 'DOTNET_ENVIRONMENT=Staging dotnet ef database update'
+blocks 'dotnet ef database update -- --environment Production'
+blocks 'ASPNETCORE_ENVIRONMENT=Local dotnet ef database update' '' "$custom_env"   # local is Dev here
+allows 'ASPNETCORE_ENVIRONMENT=Local dotnet ef database update'
+allows 'ASPNETCORE_ENVIRONMENT=Development dotnet ef database update'
+allows 'ASPNETCORE_ENVIRONMENT=Dev dotnet ef database update' "$custom_env"
 allows 'dotnet ef database update --connection "Server=localhost,1433;Database=Shop;User Id=sa"'
 allows 'dotnet ef migrations add AddOrders'
 allows 'dotnet ef migrations list'
@@ -135,6 +173,11 @@ allows 'rm -rf "$TMPDIR/dvsa-scratch"'
 allows 'rm -r src/Fixture.Api/Features/Old'    # no -f: rm asks, or fails loudly
 allows 'rm -f src/Fixture.Api/Old.cs'
 allows 'rm src/Fixture.Api/Old.cs'
+
+# --- trusting repo commands is the user's job ------------------------------------------------
+blocks 'bash ~/.claude/plugins/cache/x/dotnet-vsa/scripts/trust-command.sh .' 'user'
+blocks 'echo x >> ~/.claude/dotnet-vsa/trusted-commands'
+allows 'cat README.md'
 
 # --- payloads the hook must ignore ---------------------------------------------------------
 run_hook guard-bash.sh '{"tool_name":"Bash","tool_input":{}}';  expect_allowed 'allows: payload without a command'

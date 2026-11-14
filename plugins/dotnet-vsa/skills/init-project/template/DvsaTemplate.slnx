@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DvsaTemplate.Api/DvsaTemplate.Api.csproj" />
+  </Folder>
+</Solution>

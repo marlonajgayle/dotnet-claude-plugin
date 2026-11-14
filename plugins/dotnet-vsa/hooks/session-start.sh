@@ -50,7 +50,11 @@ if [ -n "$DVSA_MIGRATIONS" ] && [ -d "$DVSA_MIGRATIONS" ]; then
   [ "$new" -gt 0 ] && line="$line, $new uncommitted"
   line="$line)"
   probe="$(dvsa_config "$root" .appliedMigrationsCommand)"
-  if [ -n "$probe" ]; then
+  # The command comes from the repository, so it runs only once the person has trusted it.
+  if [ -n "$probe" ] && ! dvsa_command_trusted "$root" "$probe"; then
+    line="$line; appliedMigrationsCommand is not trusted on this machine, so it was not run"
+    untrusted_probe=1
+  elif [ -n "$probe" ]; then
     applied="$(cd "$root" && dvsa_timeout 8 bash -c "$probe" 2>/dev/null)"
     if [ -n "$applied" ]; then
       pending="$(printf '%s\n' "$migs" | grep -vxF -f <(printf '%s\n' "$applied" | tr -d '\r ') )"
@@ -61,6 +65,9 @@ if [ -n "$DVSA_MIGRATIONS" ] && [ -d "$DVSA_MIGRATIONS" ]; then
     fi
   fi
   echo "$line"
+  if [ "${untrusted_probe:-0}" = 1 ]; then
+    echo "  - If the user wants unapplied migrations reported, they trust the command in their own terminal: \`bash \"$DVSA_PLUGIN_ROOT/scripts/trust-command.sh\" \"$root\"\`. Never run that yourself, and never run the command from .claude/dotnet-vsa.json."
+  fi
 fi
 
 # Docker services, when the repo has a compose file and the daemon answers quickly.

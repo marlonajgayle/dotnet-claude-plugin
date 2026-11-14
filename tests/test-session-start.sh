@@ -35,6 +35,42 @@ echo "$version" > "$repo/.claude/rules/dotnet-vsa/.source"
 started "$repo" s2
 expect_lacks 'rules: silent when current' "$OUT" '- Rules:'
 
+# --- appliedMigrationsCommand runs only once the person trusts it -----------------------------
+export DVSA_TRUST_FILE="$T_TMP/trusted-commands"
+probe_repo="$T_TMP/probe"; t_fixture_repo "$probe_repo"
+mig="$probe_repo/src/Fixture.Api/Migrations"; mkdir -p "$mig"
+touch "$mig/20240101000000_Init.cs" "$mig/20240102000000_Orders.cs"
+marker="$T_TMP/probe-ran"
+cmd="touch '$marker'; echo 20240101000000_Init"
+mkdir -p "$probe_repo/.claude"
+jq -n --arg c "$cmd" '{appliedMigrationsCommand: $c}' > "$probe_repo/.claude/dotnet-vsa.json"
+root="$(git -C "$probe_repo" rev-parse --show-toplevel)"
+
+started "$probe_repo" s5
+expect_contains 'untrusted command: says it was not run' "$OUT" 'appliedMigrationsCommand is not trusted on this machine, so it was not run'
+expect_contains 'untrusted command: names the trust script' "$OUT" 'trust-command.sh'
+if [ -e "$marker" ]; then bad 'untrusted command: never runs'; else ok; fi
+
+trust_out="$(bash "$PLUGIN_DIR/scripts/trust-command.sh" "$probe_repo" </dev/null 2>&1)"; RC=$?
+expect_eq 'trust-command: refuses without a terminal' "$RC" 2
+if [ -f "$DVSA_TRUST_FILE" ]; then bad 'trust-command: writes nothing without a terminal'; else ok; fi
+
+jq -cn --arg r "$root" --arg c "$cmd" '{root: $r, command: $c}' > "$DVSA_TRUST_FILE"
+started "$probe_repo" s5
+expect_contains 'trusted command: reports unapplied migrations' "$OUT" 'unapplied locally: 1 (20240102000000_Orders)'
+if [ -e "$marker" ]; then ok; else bad 'trusted command: runs'; fi
+
+# Changing the command in the repo makes it untrusted again.
+rm -f "$marker"
+jq -n --arg c "$cmd; echo changed" '{appliedMigrationsCommand: $c}' > "$probe_repo/.claude/dotnet-vsa.json"
+started "$probe_repo" s5
+expect_contains 'changed command: untrusted again' "$OUT" 'is not trusted on this machine'
+if [ -e "$marker" ]; then bad 'changed command: never runs'; else ok; fi
+
+bash "$PLUGIN_DIR/scripts/trust-command.sh" --revoke "$probe_repo" >/dev/null
+expect_eq 'trust-command --revoke: forgets the repo' "$(cat "$DVSA_TRUST_FILE")" ''
+unset DVSA_TRUST_FILE
+
 # --- repos the plugin does not apply to ------------------------------------------------------
 plain="$T_TMP/plain"; t_repo "$plain"
 started "$plain" s3; expect_allowed 'silent in a repo without .NET'

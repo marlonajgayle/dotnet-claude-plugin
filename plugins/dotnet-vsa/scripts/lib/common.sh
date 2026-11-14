@@ -14,11 +14,15 @@
 #     "specsDir": ".ai/specs",
 #     "reviewsDir": ".ai/reviews",
 #     "backlogFile": ".ai/backlog.md",
+#     "baseBranch": "main",                     (else origin's default branch, then main or master)
+#     "appHost": "src/MyApp.AppHost/MyApp.AppHost.csproj",
 #     "designDoc": "DESIGN.md",
 #     "docsDir": "docs",
 #     "healthUrl": "https://localhost:7143/health",
 #     "appliedMigrationsCommand": "",
 #     "fast": false,
+#     "stopTests": "off",                       (off | changed | all)
+#     "stopTestsFilter": "Category!=Integration", ("none" for no extra filter)
 #     "checks": { "handlerDi": true, "outbox": true, "softDelete": true, "endpointAuth": true,
 #                 "rateLimit": true, "phantomNav": true, "utcKinds": true, "csproj": true },
 #     "approver": { "autoMerge": false, "maxAutoMergeRisk": "low", "mergeMethod": "squash" }
@@ -78,6 +82,19 @@ dvsa_find() {
   find "$start" \( -name .git -o -name bin -o -name obj -o -name node_modules -o -name .vs -o -name .idea \) -prune -o "$@" -print 2>/dev/null
 }
 
+# Is this .csproj a test project by its location? True when a dotted segment of the project's
+# name ends in Test or Tests (Shop.Api.Tests, Shop.IntegrationTests, ShopTests), or a folder
+# between the repo root and the project is named test/tests. Folders above DVSA_ROOT are
+# ignored, and so is "test" inside a word (Contest.Api, Latest.Web).
+dvsa_is_test_path() {
+  local p="$1" rel name
+  name="$(basename "$p" .csproj)"
+  printf '%s\n' "$name" | grep -Eq '(^|[._-])([A-Za-z0-9]*Tests?|[Tt]ests?)([._-]|$)' && return 0
+  rel="${p#"$DVSA_ROOT"/}"
+  case "/$rel" in */[Tt]est/*|*/[Tt]ests/*|*/TEST/*|*/TESTS/*) return 0 ;; esac
+  return 1
+}
+
 # Populates DVSA_ROOT, DVSA_SLN, DVSA_API_PROJECT, DVSA_API_DIR, DVSA_PROGRAM,
 # DVSA_OUTBOX, DVSA_MIGRATIONS. Any may be empty when the repo is not a .NET API.
 dvsa_discover() {
@@ -95,11 +112,12 @@ dvsa_discover() {
   if [ -n "$v" ]; then
     DVSA_API_PROJECT="$(dvsa_abs "$v")"
   else
-    # The first web SDK project that is not a test project.
+    # The first web SDK project that is not a test project. Only the project's own name and the
+    # folders inside the repo decide that: a repo cloned under ~/latest/ or ~/contest/ is not a test.
     DVSA_API_PROJECT=""
     local p
     for p in $(dvsa_find "$DVSA_ROOT" -maxdepth 5 -name '*.csproj' | sort); do
-      case "$p" in *Test*|*test*) continue ;; esac
+      dvsa_is_test_path "$p" && continue
       if grep -q 'Sdk="Microsoft.NET.Sdk.Web"' "$p" 2>/dev/null; then
         DVSA_API_PROJECT="$p"; break
       fi
@@ -137,6 +155,20 @@ dvsa_test_projects() {
   for p in $(dvsa_find "$DVSA_ROOT" -maxdepth 5 -name '*.csproj'); do
     grep -qiE 'xunit|nunit|mstest|Microsoft\.NET\.Test\.Sdk' "$p" 2>/dev/null && printf '%s\n' "$p"
   done
+}
+
+# Repository commands the person has trusted on this machine (appliedMigrationsCommand). The
+# file lives outside every repository, so cloning a repo can never trust its own command. One
+# JSON object per line: {"root": "<repo root>", "command": "<exact command>"}.
+dvsa_trust_file() {
+  printf '%s\n' "${DVSA_TRUST_FILE:-$HOME/.claude/dotnet-vsa/trusted-commands}"
+}
+
+# dvsa_command_trusted ROOT COMMAND: true when exactly this command is trusted for this repo.
+dvsa_command_trusted() {
+  local f; f="$(dvsa_trust_file)"
+  [ -f "$f" ] && dvsa_have jq || return 1
+  jq -se --arg r "$1" --arg c "$2" 'any(.[]; .root == $r and .command == $c)' "$f" >/dev/null 2>&1
 }
 
 # Per-session state, used to remember the starting commit and the last verified tree.

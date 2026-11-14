@@ -20,11 +20,11 @@ Read `.claude/dotnet-vsa.json` if it exists (with `jq`). Defaults apply for anyt
 
 ## Step 2: Gates
 
-Find the branch and slug: the current branch, which must be a `feature/`, `bugfix/` or `hotfix/` branch, and its name minus that prefix, and `REVIEWS_DIR` and `SPECS_DIR` from discovery (defaults `.ai/reviews`, `.ai/specs`). Any gate that fails means **HUMAN REVIEW**, whatever the risk level:
+Find the branch and slug: the current branch, which must be a `feature/`, `bugfix/` or `hotfix/` branch, and its name minus that prefix, and `REVIEWS_DIR`, `SPECS_DIR` and `BASE_REF` from discovery (`bash "${CLAUDE_PLUGIN_ROOT}/scripts/discover.sh"`; defaults `.ai/reviews`, `.ai/specs`). Any gate that fails means **HUMAN REVIEW**, whatever the risk level:
 
 1. The branch is a `feature/`, `bugfix/` or `hotfix/` branch, not `main` or `master`.
 2. The working tree is clean (`git status --porcelain` is empty), so what was reviewed is what would merge.
-3. `<REVIEWS_DIR>/<slug>/code.md` and `security.md` exist. `ux.md` exists if any user-facing file changed (`*.razor`, `*.cshtml`, `*.css`, `wwwroot/`, `*.resx`).
+3. `<REVIEWS_DIR>/<slug>/code.md` and `security.md` exist. `ux.md` exists if any user-facing file changed (`*.razor`, `*.cshtml`, `*.css`, `*.scss`, `wwwroot/`, `*.resx`, `*Validator.cs`, `*Errors.cs`). A NOT APPLICABLE `ux.md` written by the `ship` skill counts when none of those changed.
 4. Every report's **Commit** equals `git rev-parse HEAD`, or every commit after it changes only files under the docs folder (`docsDir`, default `docs/`), which the `documenter` agent writes after approval. Any other change after the reviewed commit makes the report stale.
 5. No report has an open Critical or High finding, and no verdict is CHANGES REQUESTED.
 6. Verification passes now: invoke the `verify` skill with `changed --tests`. Any FAIL fails the gate. If a test project exists, tests ran and passed.
@@ -33,7 +33,7 @@ Find the branch and slug: the current branch, which must be a `feature/`, `bugfi
 
 ## Step 3: Risk
 
-Score from `git diff --stat origin/main...HEAD`, `git diff origin/main...HEAD`, the spec's Risk notes, and the reviewers' reports. The risk level is the highest level any factor reaches.
+Score from `git diff --stat <BASE_REF>...HEAD`, `git diff <BASE_REF>...HEAD` (`BASE_REF` from discovery), the spec's Risk notes, and the reviewers' reports. The risk level is the highest level any factor reaches.
 
 | Level | Any of these |
 |---|---|

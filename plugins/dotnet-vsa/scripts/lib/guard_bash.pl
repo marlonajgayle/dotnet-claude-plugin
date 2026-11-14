@@ -123,6 +123,38 @@ for my $item (@all) {
         if ($sub eq 'push' && grep { /^\+(?:.*[:\/])?(main|master)$/ } @g) {
             block("dotnet-vsa: a +refspec force-pushes main/master and rewrites shared history.");
         }
+
+        # Commands that throw away work with no way back: uncommitted changes, untracked files,
+        # unmerged commits or stashes. The person may have work in the tree that is not Claude's.
+        my @args = @g[1 .. $#g];
+        my $short = join '', map { /^-([a-zA-Z]+)$/ ? $1 : '' } @args;
+        if ($sub eq 'reset' && grep({ $_ eq '--hard' } @args)) {
+            block("dotnet-vsa: `git reset --hard` discards uncommitted changes and can drop commits, and they cannot be recovered. Use `git stash` to set changes aside, `git restore <file>` for a file you changed yourself, or ask the user to run it.");
+        }
+        my $forced  = $short =~ /f/ || grep({ $_ eq '--force' } @args);
+        my $dry_run = $short =~ /n/ || grep({ $_ eq '--dry-run' } @args);
+        if ($sub eq 'clean' && $forced && !$dry_run) {
+            block("dotnet-vsa: `git clean -f` deletes untracked files, which may be the user's uncommitted work. Run `git clean -n` to list them, delete specific files instead, or ask the user to run it.");
+        }
+        my $staged_only = (grep({ /^(?:--staged|-S)$/ } @args) ? 1 : 0)
+                          && !(grep({ /^(?:--worktree|-W)$/ } @args) ? 1 : 0);
+        my $whole_tree  = grep({ /^(?:\.|\.\/|:\/|:\/\.|\*|\.\/\*)$/ } @args) ? 1 : 0;
+        if (($sub eq 'checkout' || $sub eq 'restore') && $whole_tree && !$staged_only) {
+            block("dotnet-vsa: `git $sub .` discards every uncommitted change in the tree, including the user's. Restore the specific files you changed instead, or use `git stash`.");
+        }
+        my $del_force = (grep({ $_ eq '--delete' } @args) ? 1 : 0) && (grep({ $_ eq '--force' } @args) ? 1 : 0);
+        if ($sub eq 'branch' && ($short =~ /D/ || ($short =~ /d/ && $short =~ /f/) || $del_force)) {
+            block("dotnet-vsa: `git branch -D` deletes a branch even when its commits are not merged anywhere. Use `git branch -d`, which refuses to lose work, or ask the user.");
+        }
+        if ($sub eq 'stash' && ($g[1] // '') =~ /^(?:clear|drop)$/) {
+            block("dotnet-vsa: `git stash $g[1]` deletes stashed work for good. Ask the user before dropping a stash.");
+        }
+    }
+
+    # --- trusting repo commands ------------------------------------------------------------
+    # The person trusts appliedMigrationsCommand themselves; an agent session never does it.
+    if ($raw =~ /trust-command\.sh/ || $raw =~ /dotnet-vsa\/trusted-commands/) {
+        block("dotnet-vsa: trusting a repository's appliedMigrationsCommand is the user's decision. Ask them to run the trust command in their own terminal.");
     }
 
     # --- docker volumes ----------------------------------------------------------------
@@ -142,6 +174,15 @@ for my $item (@all) {
         }
         if ($rest =~ /^migrations\s+remove\b/ && !$is_local) {
             block("dotnet-vsa: `dotnet ef migrations remove` rewrites the migration history and reverts the database if the migration was applied. Only do this for a migration that exists nowhere but this machine, and prefix the command with ASPNETCORE_ENVIRONMENT=$local_env.");
+        }
+        # An environment named on the command line decides which appsettings and connection
+        # string the app loads. Only the local one and Development are this machine's.
+        my ($named_env) = ($env =~ /\b(?:ASPNETCORE|DOTNET)_ENVIRONMENT=(\S+)/);
+        ($named_env) = ($line =~ /--environment(?:\s+|=)(\S+)/) unless defined $named_env;
+        if (defined $named_env) { $named_env =~ s/^["']|["']$//g; }
+        if ($rest =~ /^database\s+update\b/ && defined $named_env
+            && $named_env ne $local_env && lc($named_env) ne 'development') {
+            block("dotnet-vsa: `dotnet ef database update` with environment '$named_env' migrates that environment's database, not this machine's. Never migrate a shared database from an agent session; generate a script with `dotnet ef migrations script --idempotent` and hand it to the user.");
         }
         if ($rest =~ /^database\s+update\b/) {
             my ($conn) = $line =~ /--connection(?:\s+|=)(.+?)(?:\s+--|$)/;

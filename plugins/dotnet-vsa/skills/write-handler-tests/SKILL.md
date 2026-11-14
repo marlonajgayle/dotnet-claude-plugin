@@ -20,13 +20,17 @@ Read any existing tests in the test project and match their style (naming, build
 
 ## Step 2: Test infrastructure (once per test project)
 
-If the test project has no database fixture yet, add `Infrastructure/SqliteDbContextFactory.cs`:
+If the test project has no database fixture yet, copy the templates into its `Infrastructure/` folder, replacing `DvsaTemplate` with the API's root namespace:
 
-- An open `SqliteConnection("DataSource=:memory:")` kept alive for the test's lifetime.
-- `new ApplicationDbContext(options, ...)` built with `UseSqlite(connection)`, passing simple fakes for the constructor's other dependencies (current user, clock, encryption). Read the constructor; never mock the DbContext itself.
-- `EnsureCreated()`. SQL Server-only configuration (`IsClustered`, filters using `[IsDeleted] = 0`, `HasDefaultValueSql("getutcdate()")`) can fail on SQLite. Prefer guarding it in the configuration with `Database.IsSqlServer()` rather than weakening the test; if that is not acceptable, fall back to the EF in-memory provider and note what it cannot check (constraints, transactions).
+- `${CLAUDE_SKILL_DIR}/templates/SqliteDbContextFactory.cs`: a real `ApplicationDbContext` over SQLite in memory, one database per instance, created with `EnsureCreated()`. `CreateContext()` gives a fresh context, so a test arranges with one and asserts with another.
+- `${CLAUDE_SKILL_DIR}/templates/TestDoubles.cs`: `TestClock`, a `TimeProvider` that stands still until a test moves it, and `TestCurrentUser`, the caller a handler sees.
 
-Add `Microsoft.EntityFrameworkCore.Sqlite` to the test project if it is missing; it is a test-only dependency, so mention it in the report.
+Add `Microsoft.EntityFrameworkCore.Sqlite` to the test project, pinned to the API's EF Core major version (`bash "${CLAUDE_SKILL_DIR}/../../scripts/nuget-version.sh" Microsoft.EntityFrameworkCore.Sqlite 10` for `net10.0`, or the `nuget` MCP tools). It is a test-only dependency; name it in the report.
+
+The templates fit projects made by `init-project`. In another project, adapt them to what the code has, and say what you changed:
+
+- The DbContext's constructor. Pass simple fakes for its other dependencies (current user, clock, encryption); never mock the DbContext itself.
+- SQL Server-only configuration (`IsClustered`, `HasDefaultValueSql("getutcdate()")`, SQL Server column types) can fail on SQLite. Prefer guarding it in the configuration with `Database.IsSqlServer()` rather than weakening the test; if that is not acceptable, fall back to the EF in-memory provider and note what it cannot check (constraints, transactions). Filtered indexes written as `[IsDeleted] = 0` work on SQLite.
 
 ## Step 3: Tests — `tests/.../Features/<Domain>/<Name>HandlerTests.cs`
 

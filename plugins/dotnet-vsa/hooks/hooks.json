@@ -44,8 +44,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "dotnet",
-            "args": ["run", "--file", "${CLAUDE_PLUGIN_ROOT}/scripts/format-csharp.cs"],
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/format-csharp.sh\"",
             "timeout": 180,
             "statusMessage": "Running dotnet format"
           },
@@ -63,7 +62,7 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/stop-verify.sh\"",
-            "timeout": 180,
+            "timeout": 600,
             "statusMessage": "Verifying build and conventions"
           }
         ]

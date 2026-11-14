@@ -6,7 +6,11 @@
 #   - docker compose down -v, docker volume rm/prune
 #   - dotnet ef database drop / migrations remove unless ASPNETCORE_ENVIRONMENT=<local env>
 #   - dotnet ef database update --connection <non-local>
+#   - ASPNETCORE_ENVIRONMENT/DOTNET_ENVIRONMENT=<other env> dotnet ef database update
 #   - rm -rf outside bin/, obj/, node_modules/ and the temp directory
+#   - work that cannot be recovered: git reset --hard, git clean -f, git checkout/restore .,
+#     git branch -D, git stash clear/drop (in any repo, .NET or not)
+#   - trusting a repo's appliedMigrationsCommand (scripts/trust-command.sh): the user does that
 # Exit 2 with the reason on stderr blocks the call; the reason is shown to Claude.
 . "$(dirname "$0")/../scripts/lib/common.sh"
 
