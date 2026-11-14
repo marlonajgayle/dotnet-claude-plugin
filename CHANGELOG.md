@@ -36,9 +36,16 @@ Targets `0.1.0`.
 - Node.js and a GitHub token added to the README prerequisites.
 - Test suite for the hooks and convention checks (`tests/run.sh`, needs only `bash`, `git`, `jq` and `perl`) with a fixture API, and a GitHub Actions workflow that runs it on Linux and macOS with ShellCheck and `claude plugin validate`.
 - Seven path-scoped rule files in `rules/` (handlers, endpoints, entities, domain events, migrations, DTOs, appsettings), each restating the conventions the hooks check so Claude sees them before it writes. The `install-rules` skill copies them into a project's `.claude/rules/dotnet-vsa/`, and `session-start.sh` says when they are missing or older than the plugin.
+- `ship` skill: runs the whole pipeline for one change (spec-writer, implementer, the three reviewers in parallel, up to `--rounds` fix rounds, approver, documenter), committing on the branch and stopping after the spec, on open questions, on unresolved findings and at the approver's decision.
+- `init-project` skill: scaffolds a new API with the SharedKernel (`Result`, `Error`, auditable and aggregate-root entities with soft delete, domain events), an EF Core SQL Server DbContext that writes events to an outbox, the outbox processor and a dispatcher that records unhandled events as errors, authorization and rate-limit policy classes, endpoint discovery, a FluentValidation filter, `compose.yaml` and `.claude/dotnet-vsa.json`. Microsoft packages are pinned to the target framework's major version.
+- `write-integration-tests` skill: endpoint tests through `WebApplicationFactory` against SQL Server in Testcontainers, with a fixture that lets each test choose its caller and dispatch the outbox on demand.
+- `stopTests` and `stopTestsFilter` in `.claude/dotnet-vsa.json`: the Stop hook can run the tests for the changed slices, or all tests, and blocks the turn when one fails. Integration tests are left out by default. The Stop hook's time limit is now 10 minutes.
+- `scripts/nuget-version.sh`: the newest stable version of a package within a major version.
+- `tests/e2e/run.sh` and a CI job that scaffold, build and run the templates' integration tests end to end.
 
 ### Fixed
 
+- `verify-conventions.sh` reported tests as passed when a filter matched no tests (`dotnet test` exits 0); it now reports that no tests ran.
 - `protectMain: false` and `checks.<name>: false` in `.claude/dotnet-vsa.json` were ignored, so commits on `main` stayed blocked and checks could not be switched off.
 - `guard-bash.sh` no longer blocks a command because `--watch` appears inside a quoted argument (for example a commit message), and allows `docker compose up --wait`, which returns once the services are healthy.
 

@@ -30,6 +30,17 @@ jobs:
       - name: Run the tests with the system bash
         run: /bin/bash tests/run.sh
 
+  e2e:
+    name: Templates end to end
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - name: Scaffold, build and run the integration tests against SQL Server
+        run: bash tests/e2e/run.sh
+
   shellcheck:
     name: ShellCheck
     runs-on: ubuntu-latest

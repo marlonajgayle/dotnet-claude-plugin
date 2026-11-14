@@ -6,6 +6,10 @@
 # - Skips when no .cs/.csproj under the API project changed since the session's first commit.
 # - Skips when the tree is identical to the last one that verified clean.
 # - "fast": true in .claude/dotnet-vsa.json skips the build and keeps only the checks.
+# - "stopTests" runs dotnet test as well: "changed" runs the tests whose names contain a
+#   changed slice's folder name (Features/<Domain>/<Slice>/), "all" runs every test, "off"
+#   (the default) runs none. "stopTestsFilter" is added to the filter; it defaults to
+#   "Category!=Integration" so tests that need Docker stay out of the end-of-turn check.
 # - Blocks at most 3 times in a row, then lets the turn end and tells the user, so an
 #   unfixable or pre-existing failure cannot trap the session in a loop.
 . "$(dirname "$0")/../scripts/lib/common.sh"
@@ -38,11 +42,30 @@ fingerprint="$( { git -C "$DVSA_ROOT" diff "$since" -- "$api_rel" 2>/dev/null
                   done; } | cksum | tr -d ' ')"
 [ "$fingerprint" = "$(cat "$state/last-verified" 2>/dev/null)" ] && exit 0
 
-args="--root $DVSA_ROOT --changed-since $since"
-[ "$(dvsa_config "$DVSA_ROOT" .fast)" = "true" ] && args="$args --no-build"
+set -- --root "$DVSA_ROOT" --changed-since "$since"
+[ "$(dvsa_config "$DVSA_ROOT" .fast)" = "true" ] && set -- "$@" --no-build
 
-# shellcheck disable=SC2086
-report="$(bash "$DVSA_PLUGIN_ROOT/scripts/verify-conventions.sh" $args 2>&1)"
+# Tests, when switched on. A slice is the folder under Features/<Domain>/; its tests are the
+# ones whose fully qualified name contains the slice name (<Slice>HandlerTests and so on).
+tests_mode="$(dvsa_config "$DVSA_ROOT" .stopTests)"
+extra_filter="$(dvsa_config "$DVSA_ROOT" .stopTestsFilter)"
+[ -n "$extra_filter" ] || extra_filter="Category!=Integration"
+[ "$extra_filter" = "none" ] && extra_filter=""
+case "$tests_mode" in
+  all)
+    if [ -n "$extra_filter" ]; then set -- "$@" --test-filter "$extra_filter"; else set -- "$@" --tests; fi
+    ;;
+  changed)
+    slices="$(printf '%s\n' "$changed" | sed -n 's|.*/Features/[^/]*/\([^/]*\)/.*|\1|p' | sort -u)"
+    if [ -n "$slices" ]; then
+      filter="$(printf '%s\n' "$slices" | sed 's/^/FullyQualifiedName~/' | paste -sd '|' -)"
+      [ -n "$extra_filter" ] && filter="($filter)&$extra_filter"
+      set -- "$@" --test-filter "$filter"
+    fi
+    ;;
+esac
+
+report="$(bash "$DVSA_PLUGIN_ROOT/scripts/verify-conventions.sh" "$@" 2>&1)"
 rc=$?
 summary="$(printf '%s\n' "$report" | tail -n 1)"
 

@@ -64,7 +64,7 @@ dotnet test <SLN> -nologo -v q
 
 ## Step 6: Report
 
-Project path, packages, the three tests with result and coverage, and next steps: `write-handler-tests` for behaviour tests; a CI workflow running `dotnet build` and `dotnet test`. State: uncommitted.
+Project path, packages, the three tests with result and coverage, and next steps: `write-handler-tests` for handler behaviour, `write-integration-tests` for endpoints through HTTP against a real database; a CI workflow running `dotnet build` and `dotnet test`. State: uncommitted.
 
 ## Rules
 

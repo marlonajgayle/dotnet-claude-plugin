@@ -33,7 +33,7 @@ Hooks enforce the conventions that otherwise depend on Claude remembering them. 
 | `guard-migrations.sh` | Before Edit/Write | Blocks edits to committed migrations. Asks before a hand edit to the model snapshot unless a new migration sits beside it. |
 | `guard-config-secrets.sh` | Before Edit/Write | Blocks secrets in `appsettings*.json` other than `appsettings.Local.json`: populated secret, password, key or token values, connection strings with passwords or account keys, JWTs, private keys, and long base64 keys. The message names the key, never the value. |
 | `check-cs-conventions.sh` | After Edit/Write | Advisory feedback on the edited file: unregistered handler, event without an outbox dispatch branch, endpoint without an authorization or rate-limit policy, `AsNoTracking()` without `!IsDeleted`, `= new()` on a navigation property, DTO `DateTime` not stamped UTC, `<None Include>` on a `.cs` file. |
-| `stop-verify.sh` | End of turn | If API code changed this session: builds and runs the convention checks on the changed files. A failing check blocks the turn from ending (at most 3 times in a row), so Claude fixes it before reporting done. |
+| `stop-verify.sh` | End of turn | If API code changed this session: builds and runs the convention checks on the changed files. A failing check blocks the turn from ending (at most 3 times in a row), so Claude fixes it before reporting done. With `stopTests` set, it also runs `dotnet test`, either for the changed slices or for everything (see [Configuration](#configuration)). |
 
 All checks come from one script, `scripts/verify-conventions.sh`, which the `verify` skill also runs.
 
@@ -51,7 +51,7 @@ Seven subagents that take a change from request to merge decision and documentat
 | `approver` | the three reports, the diff | `.ai/reviews/<slug>/decision.md` | Checks the reviews are complete and current, reruns verification, scores risk, and decides MERGE or HUMAN REVIEW. Merges only when `approver.autoMerge` is on. |
 | `documenter` | the decision, spec, reports and code | `docs/features/<slug>.md`, `docs/README.md` | Once a change is approved, writes a tutorial-style guide with the `write-feature-docs` skill. Changes only files under `docs/`. |
 
-Planning, implementing and reviewing are done by these agents, not by skills. A typical run: ask for the spec, then "use the implementer agent on <slug>", then run the three reviewers (they are independent, so they can run in parallel), have the implementer fix any findings and rerun the reviewers, then ask the approver. Once it decides MERGE, run the documenter before merging so the guide ships with the code; docs-only commits after the review do not make the reports stale.
+Planning, implementing and reviewing are done by these agents, not by skills. The `ship` skill runs the whole sequence for you (`/dotnet-vsa:ship <request>`) and stops wherever a person should decide. To run it by hand: ask for the spec, then "use the implementer agent on <slug>", then run the three reviewers (they are independent, so they can run in parallel), have the implementer fix any findings and rerun the reviewers, then ask the approver. Once it decides MERGE, run the documenter before merging so the guide ships with the code; docs-only commits after the review do not make the reports stale.
 
 The approver sends a change to a human when any gate fails (dirty tree, missing or stale review, open Critical or High finding, failing verification or checks) or when its risk is above `approver.maxAutoMergeRisk`. Migrations that alter data, authentication and authorization changes, breaking API contract changes and hotfixes are always Critical; any other migration, `Program.cs` pipeline changes, new packages, new anonymous endpoints and infrastructure files are High.
 
@@ -83,6 +83,8 @@ The patterns assume slices under `Features/` and entities under `Domain/`. If yo
 
 | Skill | Purpose |
 |---|---|
+| `ship` | Run the whole pipeline for one change: spec, implement, the three reviewers in parallel, fix rounds, approver, documentation. Commits on the branch; stops for you after the spec, on open questions, on unresolved findings and at the decision. |
+| `init-project` | Create a new API with everything the plugin assumes: `Result`, soft delete and audit fields, the outbox, policy classes, endpoint discovery, validation, `compose.yaml` for SQL Server and `.claude/dotnet-vsa.json`. |
 | `verify` | Run the verification checklist and print a pass/fail table. |
 | `add-entity` | Entity, `{Name}Errors`, EF configuration and DbSet, then a migration. |
 | `add-endpoint` | One complete slice (command/query, handler, endpoint, validator) with DI wired. |
@@ -99,6 +101,7 @@ The patterns assume slices under `Features/` and entities under `Domain/`. If yo
 | `api-contract-diff` | Breaking OpenAPI changes on this branch compared with `main`. |
 | `bootstrap-tests` | Create the test project with three conventions tests. |
 | `write-handler-tests` | xUnit tests for one handler: success, each error, soft-deleted rows, side effects. |
+| `write-integration-tests` | Endpoint tests through HTTP (`WebApplicationFactory`) against SQL Server in a container (Testcontainers): 401, 403, validation, success, another user's data, soft-deleted rows, outbox dispatch. Needs Docker. |
 | `run-api` | Start the API (and compose services) in the background and wait for `/health`. |
 | `smoke-health` | Check `/health`, the OpenAPI document and that this branch's routes are live. |
 | `write-feature-docs` | Tutorial-style feature guide in `docs/features/<slug>.md`: steps with commands and output, a Mermaid diagram, and endpoint, error, event and configuration reference. |
@@ -232,6 +235,8 @@ Discovery works without configuration. To override a path or switch a check off,
   "appliedMigrationsCommand": "",
   "protectMain": true,
   "fast": false,
+  "stopTests": "off",
+  "stopTestsFilter": "Category!=Integration",
   "checks": {
     "handlerDi": true, "outbox": true, "endpointAuth": true, "rateLimit": true,
     "softDelete": true, "phantomNav": true, "utcKinds": true, "csproj": true
@@ -245,6 +250,8 @@ Discovery works without configuration. To override a path or switch a check off,
 - `docsDir` is where the `documenter` agent and `write-feature-docs` skill write guides (`<docsDir>/features/<slug>.md`) and the index (`<docsDir>/README.md`).
 - `approver.autoMerge: true` lets the `approver` agent run `gh pr merge` when its decision is MERGE and the branch has an open PR. Off by default: the approver decides and reports only. `maxAutoMergeRisk` (`low` or `medium`) is the highest risk it may merge without a person; High and Critical always go to a human.
 - `fast: true` skips the build in the end-of-turn check and keeps only the convention checks.
+- `stopTests` adds `dotnet test` to the end-of-turn check. `"changed"` runs the tests whose names contain a changed slice's folder name (a change in `Features/Orders/CancelOrder/` runs `CancelOrderHandlerTests`, `CancelOrderEndpointTests` and so on); `"all"` runs every test; `"off"` (the default) runs none. A failing test blocks the turn like a failing check. A change outside `Features/` maps to no slice, so `"changed"` runs nothing for it.
+- `stopTestsFilter` is added to that filter. The default, `Category!=Integration`, keeps the Docker-based tests from `write-integration-tests` out of the end-of-turn check; set it to `"none"` to run them too. The Stop hook allows 10 minutes in all.
 - `appliedMigrationsCommand` is a shell command that prints applied migration ids, one per line (for example a `sqlcmd` query against `__EFMigrationsHistory`). When set, session start reports unapplied migrations.
 - Checks switch themselves off where they do not apply: handler DI when handlers are registered by assembly scanning, endpoint authorization when a `FallbackPolicy` is set, soft delete when a global `IsDeleted` query filter exists, and UTC kinds when a model-wide converter exists.
 - Anonymous endpoints pass the authorization check when marked with a `// anonymous: <reason>` comment.
@@ -265,6 +272,10 @@ bash tests/run.sh test-guard-bash.sh     # one file
 | `tests/test-guard-migrations.sh` | Committed, new and snapshot migration files, in a temporary git repository. |
 | `tests/test-conventions.sh` | Every convention check against the fixture API in `tests/fixtures/api`, through `discover.sh`, `verify-conventions.sh`, the post-edit hook and the Stop hook, plus the `.claude/dotnet-vsa.json` switches. |
 | `tests/test-session-start.sh` | The session-start context, including the notice for rules that are missing or older than the plugin. |
+| `tests/test-stop-tests.sh` | The Stop hook's `stopTests` modes and filters, with a fake `dotnet` that records each call. |
+| `tests/test-init-project.sh` | What `init-project`'s scaffold writes and refuses, its generated secrets, and that discovery and the checks understand the result. |
 | `tests/test-static.sh` | JSON, bash and perl syntax; manifest versions; that every skill, agent and rule has valid frontmatter and a row in this README. |
 
-When you change a hook or a check, add the case to the matching file. GitHub Actions runs the suite on Linux and macOS (including the system bash 3.2) for every pull request, with ShellCheck and `claude plugin validate`.
+`tests/e2e/run.sh` goes further and needs the .NET 10 SDK, network access and Docker: it scaffolds a project with `init-project`'s template, adds the packages, builds it, adds a sample slice, checks that every convention check passes, then creates the integration test project from `write-integration-tests`' templates and runs it against SQL Server. Run it after changing either template (`--no-docker` stops before the tests).
+
+When you change a hook or a check, add the case to the matching file. GitHub Actions runs the suite on Linux and macOS (including the system bash 3.2) for every pull request, with ShellCheck, `claude plugin validate` and the end-to-end script.

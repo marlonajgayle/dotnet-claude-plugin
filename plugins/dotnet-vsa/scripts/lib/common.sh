@@ -19,6 +19,8 @@
 #     "healthUrl": "https://localhost:7143/health",
 #     "appliedMigrationsCommand": "",
 #     "fast": false,
+#     "stopTests": "off",                       (off | changed | all)
+#     "stopTestsFilter": "Category!=Integration", ("none" for no extra filter)
 #     "checks": { "handlerDi": true, "outbox": true, "softDelete": true, "endpointAuth": true,
 #                 "rateLimit": true, "phantomNav": true, "utcKinds": true, "csproj": true },
 #     "approver": { "autoMerge": false, "maxAutoMergeRisk": "low", "mergeMethod": "squash" }

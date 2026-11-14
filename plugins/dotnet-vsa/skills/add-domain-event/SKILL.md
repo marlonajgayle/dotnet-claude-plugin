@@ -56,7 +56,7 @@ Add `builder.Services.AddScoped<<Namespace>.<EventName>Handler>();` to `<PROGRAM
 
 ## Step 6: Dispatch branch
 
-In `<OUTBOX_DISPATCHER>`, add the event namespace `using` if missing, then append a branch after the last existing one, copying the existing branches' exact shape:
+In `<OUTBOX_DISPATCHER>`, add the event namespace `using` if missing, then append a branch after the last existing one, copying the existing branches' exact shape. When there are no branches yet, copy the example in the dispatcher's own comment if it has one: the dispatcher `init-project` creates expects each branch to `return true`, and records a message no branch handled as an error. Otherwise use this shape:
 
 ```csharp
 if (message.Type == nameof(<EventName>))
