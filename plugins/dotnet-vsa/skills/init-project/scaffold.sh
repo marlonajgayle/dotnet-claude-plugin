@@ -77,7 +77,16 @@ for f in $local_files; do
 done
 [ -z "$conflicts" ] || die "these files already exist and would be overwritten:$conflicts"
 
-random() { LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c "$1"; }
+# Reads a bounded amount of /dev/urandom, so tr reaches end of input and exits on its own. The
+# usual `tr < /dev/urandom | head -c N` relies on SIGPIPE to stop tr; where SIGPIPE is ignored (the
+# GitHub Actions macOS runners), BSD tr never stops and the script hangs.
+random() {
+  local out=""
+  while [ "${#out}" -lt "$1" ]; do
+    out="$out$(head -c 512 /dev/urandom | LC_ALL=C tr -dc 'A-Za-z0-9')"
+  done
+  printf '%s' "${out:0:$1}"
+}
 uuid() {
   if command -v uuidgen >/dev/null 2>&1; then uuidgen | tr 'A-Z' 'a-z'
   else cat /proc/sys/kernel/random/uuid; fi

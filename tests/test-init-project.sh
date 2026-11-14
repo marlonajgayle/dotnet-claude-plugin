@@ -90,6 +90,15 @@ expect_eq 'aspire: convention checks pass' "$RC" 0
 run "$T_TMP/aspire-bad" Shop --aspire latest; expect_rc 'aspire: refuses a version that is not a version' 2
 run "$T_TMP/aspire-bad" Shop --aspire; expect_rc 'aspire: needs the version' 64
 
+# --- SIGPIPE ignored ---------------------------------------------------------------------------
+# The GitHub Actions macOS runners start jobs with SIGPIPE ignored. A `tr < /dev/urandom | head`
+# then never ends on BSD tr, which hung CI for hours. The alarm turns a hang into a failure.
+sp="$T_TMP/sigpipe"; t_repo "$sp"
+OUT="$(perl -e '$SIG{PIPE} = "IGNORE"; alarm 30; exec @ARGV' bash "$scaffold" "$sp" Shop 2>&1)"; RC=$?
+expect_rc 'finishes when SIGPIPE is ignored (exit 142 means it hung)' 0
+pw="$(sed -n 's/^MSSQL_SA_PASSWORD=//p' "$sp/.env" 2>/dev/null)"
+expect_eq 'the generated password is 24 characters with SIGPIPE ignored' "${#pw}" 24
+
 # --- refusals ------------------------------------------------------------------------------
 run "$repo" Other;               expect_rc 'refuses a repo that already has a project' 2
 expect_contains 'says why' "$ERR" 'already has a .NET solution or project'
