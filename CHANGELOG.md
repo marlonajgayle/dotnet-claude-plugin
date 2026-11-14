@@ -12,6 +12,10 @@ the pinned version until it changes.
 
 ## [Unreleased]
 
+### Added
+
+- README installation section, covering the CLI, the VS Code extension and team-wide setup through `.claude/settings.json`.
+
 ## [0.1.0] - 2026-11-14
 
 First release.
