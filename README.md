@@ -18,6 +18,76 @@ Claude Code plugin marketplace with an agentic harness for .NET 10 projects. Shi
 
 The session-start message lists any bundled MCP server that cannot start because one of these is missing.
 
+## Installation
+
+The plugin lives in this repository's marketplace. Add the marketplace once, then install the plugin from it:
+
+```text
+/plugin marketplace add marlonajgayle/dotnet-claude-plugin
+/plugin install dotnet-vsa@dotnet-claude-plugin
+```
+
+Plugins are installed for your user account, in `~/.claude`, so the terminal CLI and the VS Code extension share one installation. Install once in either place and both have it.
+
+### In VS Code
+
+1. **Install the Claude Code extension.** Open the Extensions view (`Cmd+Shift+X` on macOS, `Ctrl+Shift+X` elsewhere), search for **Claude Code**, and install the extension published by Anthropic. Open it from the Claude icon in the activity bar, or with **Claude Code: Open** in the Command Palette, and sign in.
+
+2. **Install the prerequisites** listed in [Prerequisites](#prerequisites): the .NET 10 SDK, the Roslyn Language Server, `jq`, Node.js and, for the GitHub server, a token.
+
+3. **Make your environment visible to VS Code.** The extension starts Claude Code with VS Code's environment, not with the terminal you happen to have open. Put these in your shell profile (`~/.zprofile` or `~/.zshrc` on macOS, `~/.bashrc` or `~/.profile` on Linux):
+
+   ```sh
+   export PATH="$PATH:$HOME/.dotnet/tools"
+   export GITHUB_PERSONAL_ACCESS_TOKEN=github_pat_...
+   ```
+
+   Then quit VS Code completely (`Cmd+Q`, not just closing the window) and start it again so it reads the profile. Starting VS Code from a terminal with `code .` also works. If an environment variable still doesn't reach the extension, set it under `env` in `~/.claude/settings.json` instead. That file is in your home directory and never committed, but it stores the token as plain text.
+
+4. **Add the marketplace and install the plugin.** In the Claude Code panel, type the two commands from [Installation](#installation). The panel also has a plugin manager: type `/plugins` to browse the marketplace and install `dotnet-vsa` from there. If you prefer a terminal, run the same steps in VS Code's integrated terminal:
+
+   ```sh
+   claude plugin marketplace add marlonajgayle/dotnet-claude-plugin
+   claude plugin install dotnet-vsa@dotnet-claude-plugin
+   ```
+
+5. **Start a new session** in the panel (the plugin loads when a session starts), with your .NET repository open as the workspace folder. The hooks find the solution and API project from the workspace root.
+
+6. **Check that it loaded.**
+   - Type `/dotnet-vsa:` in the prompt box. The plugin's skills appear in the list.
+   - Type `/mcp`. `microsoft-learn`, `nuget`, `context7` and `github` are listed and connected. A server that failed usually means a missing prerequisite or token from step 3.
+   - In a repository with a .NET API, ask "which solution and API project did the plugin find?". Claude answers from the session-start context. In a repository without one, the hooks stay silent, which is expected.
+
+7. **Install the rules in each repository.** Run `/dotnet-vsa:install-rules` once per repository and commit `.claude/rules/dotnet-vsa/` (see [Rules](#rules)).
+
+### Setting it up for a team
+
+To have everyone who opens the repository offered the plugin, commit a `.claude/settings.json` in that repository:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "dotnet-claude-plugin": {
+      "source": { "source": "github", "repo": "marlonajgayle/dotnet-claude-plugin" }
+    }
+  },
+  "enabledPlugins": {
+    "dotnet-vsa@dotnet-claude-plugin": true
+  }
+}
+```
+
+When a teammate trusts the folder, in VS Code or the CLI, Claude Code asks them to install the marketplace and the plugin. Each person still needs the prerequisites and their own GitHub token.
+
+### Updating and removing
+
+```text
+/plugin marketplace update dotnet-claude-plugin   # fetch new versions
+/plugin uninstall dotnet-vsa@dotnet-claude-plugin
+```
+
+After an update, start a new session, then run `/dotnet-vsa:install-rules --check` to see whether the repository's rules have changed.
+
 ## Formatting
 
 Every `.cs` file Claude writes or edits is formatted with `dotnet format`, using the nearest `.csproj`, so your `.editorconfig` code style and analyzer settings apply. Files outside a project get whitespace formatting only. Add an `.editorconfig` to your repo to control the style. Edits to any other kind of file never start `dotnet`, so they cost nothing.
