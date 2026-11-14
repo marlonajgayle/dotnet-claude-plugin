@@ -68,7 +68,7 @@ dotnet new xunit -n "$app.Api.Tests" -o "$unit" > /dev/null
 rm "$unit/UnitTest1.cs"
 (cd "$unit" && dotnet add package Microsoft.EntityFrameworkCore.Sqlite --version "$(v Microsoft.EntityFrameworkCore.Sqlite 10)" > /dev/null \
   && dotnet add reference "../../src/$app.Api/$app.Api.csproj" > /dev/null)
-dotnet sln "$app.slnx" add "$unit/$app.Api.Tests.csproj" > /dev/null
+dotnet sln "$app.slnx" add --include-references false "$unit/$app.Api.Tests.csproj" > /dev/null
 mkdir -p "$unit/Infrastructure" "$unit/Features/Notes"
 for f in SqliteDbContextFactory.cs TestDoubles.cs; do
   sed "s/DvsaTemplate/$app/g" "$plugin/skills/write-handler-tests/templates/$f" > "$unit/Infrastructure/$f"
@@ -84,7 +84,7 @@ rm "$tests/UnitTest1.cs"
 (cd "$tests" && dotnet add package Microsoft.AspNetCore.Mvc.Testing --version "$(v Microsoft.AspNetCore.Mvc.Testing 10)" > /dev/null \
   && dotnet add package Testcontainers.MsSql --version "$(v Testcontainers.MsSql)" > /dev/null \
   && dotnet add reference "../../src/$app.Api/$app.Api.csproj" > /dev/null)
-dotnet sln "$app.slnx" add "$tests/$app.Api.IntegrationTests.csproj" > /dev/null
+dotnet sln "$app.slnx" add --include-references false "$tests/$app.Api.IntegrationTests.csproj" > /dev/null
 mkdir -p "$tests/Infrastructure" "$tests/Features/Notes"
 for f in ApiFactory.cs TestAuthHandler.cs; do
   sed "s/DvsaTemplate/$app/g" "$plugin/skills/write-integration-tests/templates/$f" > "$tests/Infrastructure/$f"

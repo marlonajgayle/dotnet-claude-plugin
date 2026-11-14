@@ -46,7 +46,7 @@ dotnet add package Microsoft.AspNetCore.Mvc.Testing --version "$v"
 v=$(bash "${CLAUDE_SKILL_DIR}/../../scripts/nuget-version.sh" Testcontainers.MsSql)
 dotnet add package Testcontainers.MsSql --version "$v"
 dotnet add reference <relative path to API_PROJECT>
-cd - && dotnet sln <SLN> add <tests-dir>/<Api>.IntegrationTests/<Api>.IntegrationTests.csproj
+cd - && dotnet sln <SLN> add --include-references false <tests-dir>/<Api>.IntegrationTests/<Api>.IntegrationTests.csproj
 ```
 
 `Mvc.Testing` must match the API's target framework major (10 for `net10.0`). Prefer the `nuget` MCP tools for both versions when they are connected.

@@ -25,7 +25,7 @@ dotnet new xunit -n <Api>.Tests -o <tests-dir>/<Api>.Tests
 cd <tests-dir>/<Api>.Tests
 dotnet add package Microsoft.CodeAnalysis.CSharp
 dotnet add reference <relative path to API_PROJECT>
-cd - && dotnet sln <SLN> add <tests-dir>/<Api>.Tests/<Api>.Tests.csproj
+cd - && dotnet sln <SLN> add --include-references false <tests-dir>/<Api>.Tests/<Api>.Tests.csproj
 ```
 
 Delete the template's `UnitTest1.cs`. Use plain xUnit `Assert` (no extra assertion library unless the solution already uses one).
