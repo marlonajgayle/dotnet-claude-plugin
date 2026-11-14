@@ -95,7 +95,14 @@ if [ -f "$root/$backlog" ]; then
   [ -n "$p1" ] && { echo "- Top P1 items in $backlog:"; echo "$p1"; }
 fi
 
+mcp_missing=""
+dvsa_have dnx || mcp_missing="$mcp_missing nuget (needs dnx from the .NET 10 SDK);"
+dvsa_have npx || mcp_missing="$mcp_missing context7 (needs npx from Node.js);"
+[ -n "${GITHUB_PERSONAL_ACCESS_TOKEN:-}" ] || mcp_missing="$mcp_missing github (GITHUB_PERSONAL_ACCESS_TOKEN is not set);"
+[ -n "$mcp_missing" ] && echo "- MCP servers that cannot start:${mcp_missing%;}. Say so when a task needs one rather than guessing."
+
 cat <<'EOF'
+- Look things up rather than recalling them: .NET 10, ASP.NET Core, EF Core and Azure APIs with the microsoft-learn MCP tools; third-party libraries with context7; package versions and vulnerabilities with nuget. Ask before adding or upgrading a NuGet package.
 - Guard rails: long-running commands need run_in_background; committed migrations are immutable; secrets stay out of appsettings*.json (Local excepted); unregistered handlers, missing outbox branches and unsecured endpoints are reported after each edit and block the end of the turn.
 - `dotnet build` passing is not the app running. Say what you observed, and say when a runtime check is still pending.
 EOF

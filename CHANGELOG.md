@@ -29,5 +29,10 @@ Targets `0.1.0`.
 - `documenter` subagent (Sonnet) that documents a change once the approver decides MERGE, and the `write-feature-docs` skill it uses: a guide in `docs/features/<slug>.md` structured like a DigitalOcean community tutorial, with a template (`template.md`) and style guide (`style.md`). The approver now accepts docs-only commits made after the review.
 - `designDoc`, `docsDir` and `approver` (`autoMerge`, `maxAutoMergeRisk`, `mergeMethod`) keys in `.claude/dotnet-vsa.json`.
 - `jq` and `perl` added to the README prerequisites.
+- Bundled MCP servers in `.mcp.json`: `microsoft-learn` (current .NET and Azure docs), `nuget` (`dnx NuGet.Mcp.Server`: package information and vulnerability fixes), `context7` (third-party library docs) and `github` (issues, pull requests and Actions runs; needs `GITHUB_PERSONAL_ACCESS_TOKEN`).
+- Agents get only the MCP servers they need in their `tools` lists. The `implementer` asks before adding or upgrading a package and picks the version with `nuget`. The `spec-writer` reads GitHub issues. The `code-reviewer` and `review-pr` read failing Actions runs on the PR. `package-health`, `security-audit` and the `security-reviewer` use `nuget` read-only to name the fixed version.
+- `session-start.sh` lists bundled MCP servers that cannot start (no `dnx`, no `npx`, no GitHub token).
+- README section on MCP servers, with project-level `.mcp.json` snippets for Playwright, Sentry, Azure MCP (Application Insights and Azure Monitor) and Azure DevOps.
+- Node.js and a GitHub token added to the README prerequisites.
 
 [Unreleased]: https://github.com/marlonajgayle/dotnet-claude-plugin/commits/main
