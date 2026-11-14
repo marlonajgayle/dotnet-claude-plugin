@@ -24,6 +24,8 @@ Run `bash "${CLAUDE_SKILL_DIR}/../../scripts/discover.sh"`. Use `API_DIR`, `PROG
 
 In parallel: `git fetch origin main --quiet`, `git diff --stat origin/main...HEAD`, `git diff origin/main...HEAD`, `git log origin/main..HEAD --oneline`, `git status --short`. If the diff and status are both empty, stop: nothing to review.
 
+If the branch has an open PR and the plugin's `github` MCP server is connected, also read the PR (description, review comments) and its latest Actions runs. Each failing job becomes a finding with the job name, the failing step and the error lines from its log. Post review comments on the PR only when the user asks for that; otherwise the report is the only output.
+
 ## Step 3: Mechanical checks
 
 ```bash

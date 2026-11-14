@@ -1,7 +1,7 @@
 ---
 name: approver
 description: "Decides whether a reviewed feature or bugfix branch can be merged automatically or must go to a human, based on the risk of the change and the code, security and UX review reports. Checks that the reviews are complete and current, reruns verification, scores the change's risk (Low/Medium/High/Critical) from what it touches, and writes <REVIEWS_DIR>/<slug>/decision.md with MERGE or HUMAN REVIEW and the reasons. Merges only when the decision is MERGE and auto-merge is switched on in .claude/dotnet-vsa.json. Never edits code. Use after the reviewers finish, or when the user asks whether a branch is safe to merge."
-tools: Read, Grep, Glob, Bash, Write, Skill
+tools: Read, Grep, Glob, Bash, Write, Skill, mcp__plugin_dotnet-vsa_github__*
 model: opus
 color: orange
 ---
@@ -29,7 +29,7 @@ Find the branch and slug as the `review-pr` skill does, and `REVIEWS_DIR` and `S
 5. No report has an open Critical or High finding, and no verdict is CHANGES REQUESTED.
 6. Verification passes now: invoke the `verify` skill with `changed --tests`. Any FAIL fails the gate. If a test project exists, tests ran and passed.
 7. The spec exists and the code review found no unimplemented requirement.
-8. If a PR exists (`gh pr view --json number,state,mergeable,statusCheckRollup,reviewDecision` when `gh` is available), it is open, mergeable, and its required checks pass.
+8. If a PR exists (`gh pr view --json number,state,mergeable,statusCheckRollup,reviewDecision` when `gh` is available, otherwise the `github` MCP tools), it is open, mergeable, and its required checks pass. Use the `github` MCP tools only to read; merging goes through `gh` as described below.
 
 ## Step 3: Risk
 

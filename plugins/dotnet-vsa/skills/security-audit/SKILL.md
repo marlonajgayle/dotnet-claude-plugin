@@ -18,7 +18,7 @@ Run `bash "${CLAUDE_SKILL_DIR}/../../scripts/discover.sh"`. Glob all `*.sln`/`*.
 
 ## Layer 1: Packages
 
-`dotnet list <SLN> package --vulnerable --include-transitive`, then `--deprecated`, then `--outdated`. One finding per vulnerable row, mapping the advisory severity directly (Moderate is Medium). Remediation: `dotnet add package <Name> --version <fixed>` plus the advisory URL. (`package-health` is the quick standalone version of this layer.)
+`dotnet list <SLN> package --vulnerable --include-transitive`, then `--deprecated`, then `--outdated`. One finding per vulnerable row, mapping the advisory severity directly (Moderate is Medium). Remediation: `dotnet add package <Name> --version <fixed>` plus the advisory URL. When the plugin's `nuget` MCP server is connected, use its read tools to choose `<fixed>`: the best version compatible with the target framework that clears every advisory, including for transitive packages. Do not run its update tools; this audit is read-only. (`package-health` is the quick standalone version of this layer.)
 
 ## Layer 2: Secrets
 

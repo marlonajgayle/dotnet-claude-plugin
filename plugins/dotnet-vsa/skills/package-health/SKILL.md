@@ -21,6 +21,8 @@ dotnet list <SLN> package --outdated --format json
 
 `--format json` needs a recent SDK; if it is rejected, run the same commands without it and parse the tables. If restore or the feed fails (offline, auth), say which check was skipped and why, and continue with the rest.
 
+When the plugin's `nuget` MCP server is connected, use its tools to fill in **Fixed in**: the best version compatible with the project's target framework that resolves every advisory, for direct and transitive packages alike. Use only its read tools here; this skill never changes package references. To apply the fixes, tell the user they can ask Claude to fix the vulnerable packages, which uses the server's update tools after confirming.
+
 ## Step 2: Classify
 
 - **Vulnerable**: one line per package and advisory, grouped Critical → High → Moderate → Low, marking whether it is a top-level or a transitive dependency. For a transitive one, name the top-level package that brings it in and whether bumping that one fixes it; otherwise suggest pinning the fixed version with a direct `PackageReference`.

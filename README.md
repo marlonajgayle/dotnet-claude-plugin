@@ -13,6 +13,10 @@ Claude Code plugin marketplace with an agentic harness for .NET 10 projects. Shi
   Make sure `~/.dotnet/tools` is on the `PATH` of the shell you launch `claude` from.
 
 - `bash`, `git`, `perl` and [`jq`](https://jqlang.org) for the guard hooks (`brew install jq` on macOS). Without `jq` the hooks stay out of the way and the session-start message says so.
+- [Node.js](https://nodejs.org) 18 or later, for `npx`, which starts the Context7 MCP server.
+- A GitHub personal access token in `GITHUB_PERSONAL_ACCESS_TOKEN` for the GitHub MCP server (see [MCP servers](#mcp-servers)).
+
+The session-start message lists any bundled MCP server that cannot start because one of these is missing.
 
 ## Formatting
 
@@ -24,7 +28,7 @@ Hooks enforce the conventions that otherwise depend on Claude remembering them. 
 
 | Hook | When | What it does |
 |---|---|---|
-| `session-start.sh` | Session start | Adds context: branch, solution and API paths, migrations (latest, uncommitted, and unapplied if configured), docker compose services, whether a test project exists, and the top three P1 backlog items. Records the starting commit. |
+| `session-start.sh` | Session start | Adds context: branch, solution and API paths, migrations (latest, uncommitted, and unapplied if configured), docker compose services, whether a test project exists, and the top three P1 backlog items. Lists bundled MCP servers that cannot start and points Claude at the documentation servers. Records the starting commit. |
 | `guard-bash.sh` | Before Bash | Blocks commands that never exit unless run in the background (`dotnet run`/`watch`, `npm start`, `--watch`, `docker compose up` without `-d`, `tail -f`); commits on `main`/`master`; force-pushes to `main`/`master`; `docker compose down -v` and volume removal; `dotnet ef database drop` and `migrations remove` without `ASPNETCORE_ENVIRONMENT=Local`; `dotnet ef database update` against a non-local connection; `rm -rf` outside `bin/`, `obj/`, `node_modules/` and temp. |
 | `guard-migrations.sh` | Before Edit/Write | Blocks edits to committed migrations. Asks before a hand edit to the model snapshot unless a new migration sits beside it. |
 | `guard-config-secrets.sh` | Before Edit/Write | Blocks secrets in `appsettings*.json` other than `appsettings.Local.json`: populated secret, password, key or token values, connection strings with passwords or account keys, JWTs, private keys, and long base64 keys. The message names the key, never the value. |
@@ -79,6 +83,112 @@ The approver sends a change to a human when any gate fails (dirty tree, missing 
 | `write-feature-docs` | Tutorial-style feature guide in `docs/features/<slug>.md`: steps with commands and output, a Mermaid diagram, and endpoint, error, event and configuration reference. |
 | `backlog-sync` | Add or close items in `.ai/backlog.md`. |
 | `install-rules` | Copy the plugin's path-scoped rules into `.claude/rules/` (once the plugin ships rules). |
+
+## MCP servers
+
+The plugin bundles four MCP servers in `plugins/dotnet-vsa/.mcp.json`. They start with the plugin, and their tools appear as `mcp__plugin_dotnet-vsa_<server>__<tool>`. Each agent gets only the servers it needs.
+
+| Server | Runs as | Auth | What it gives Claude | Used by |
+|---|---|---|---|---|
+| `microsoft-learn` | Remote, `https://learn.microsoft.com/api/mcp` | None | Searches current .NET, ASP.NET Core, EF Core, Blazor and Azure documentation. .NET 10 APIs are newer than much of Claude's training data. | `spec-writer`, `implementer`, `code-reviewer`, `security-reviewer`, `documenter` |
+| `nuget` | `dnx NuGet.Mcp.Server` (.NET 10 SDK) | None | Package information published after Claude's training; updates packages and fixes vulnerable versions, direct and transitive, to the best compatible non-vulnerable version. | `implementer`, `security-reviewer`, `package-health`, `security-audit` |
+| `context7` | `npx -y @upstash/context7-mcp` | None (an API key raises rate limits) | Version-specific docs for third-party libraries such as FluentValidation, Testcontainers and NetArchTest. | `spec-writer`, `implementer`, `code-reviewer` |
+| `github` | Remote, `https://api.githubcopilot.com/mcp/` | PAT in `GITHUB_PERSONAL_ACCESS_TOKEN` | Issues, pull requests and Actions runs (toolsets `repos`, `issues`, `pull_requests`, `actions`). | `spec-writer`, `code-reviewer`, `approver`, `review-pr` |
+
+How the plugin uses them:
+
+- **Packages.** Claude asks before adding or upgrading a NuGet package, and uses `nuget` to choose the version. The reviewers and the `package-health` and `security-audit` skills use only its read tools to name the fixed version. To apply fixes, ask for it ("fix my vulnerable packages").
+- **Issues and PRs.** The `spec-writer` reads a GitHub issue named in the request (`#123`). `review-pr` and the `code-reviewer` read the open PR and its failing Actions runs. Comments are posted on a PR only when you ask. The `approver` reads PR state through `github` and still merges only through `gh pr merge`.
+
+### GitHub token
+
+Create a [fine-grained personal access token](https://github.com/settings/personal-access-tokens/new) for the repositories you work on, with read access to Issues, Pull requests, Actions and Contents (add write access to Pull requests if Claude should comment on PRs). Export it in the shell you start `claude` from:
+
+```sh
+export GITHUB_PERSONAL_ACCESS_TOKEN=github_pat_...
+```
+
+Without it, the `github` server fails to connect and the rest of the plugin works as before.
+
+### Turning a bundled server off
+
+Run `/mcp` in a session and disable the server there.
+
+### Optional servers for your project
+
+These are not bundled, so sessions don't carry tools a team doesn't use. Add the ones that fit your stack to a `.mcp.json` at the root of your repository; Claude Code asks each person to approve project servers the first time. Keep connection strings and tokens in environment variables, never in the committed file.
+
+**Playwright**: drives a real browser, so Claude can check Blazor WebAssembly pages after a change, reproduce UI bugs and write end-to-end tests.
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"]
+    }
+  }
+}
+```
+
+**Sentry**: pulls production errors and stack traces into a bug fix, so a spec can start from a real incident. Signs in with OAuth the first time (`/mcp`).
+
+```json
+{
+  "mcpServers": {
+    "sentry": {
+      "type": "http",
+      "url": "https://mcp.sentry.dev/mcp"
+    }
+  }
+}
+```
+
+**Azure** (and Application Insights): Azure resources, Azure Monitor logs and Application Insights through your `az login` identity and its RBAC roles. `--read-only` exposes only read operations; each `--namespace` limits the tools to one service area. For incident work, `monitor` and `applicationinsights` are enough:
+
+```json
+{
+  "mcpServers": {
+    "azure": {
+      "command": "npx",
+      "args": [
+        "-y", "@azure/mcp@latest", "server", "start", "--read-only",
+        "--namespace", "monitor", "--namespace", "applicationinsights"
+      ]
+    }
+  }
+}
+```
+
+Drop the `--namespace` arguments to expose every service area, or replace them with the ones you use (run `npx -y @azure/mcp@latest --help` to list them). With the .NET SDK only, use `"command": "dnx"` and `"args": ["Azure.Mcp", "--yes", "--", "server", "start", "--read-only"]`.
+
+**Azure DevOps**: work items, repos and pipelines for teams on Azure DevOps rather than GitHub. The remote server signs in with your Microsoft account:
+
+```json
+{
+  "mcpServers": {
+    "azure-devops": {
+      "type": "http",
+      "url": "https://mcp.dev.azure.com/<organization>"
+    }
+  }
+}
+```
+
+The local server can load only the domains you use (always include `core`):
+
+```json
+{
+  "mcpServers": {
+    "azure-devops": {
+      "command": "npx",
+      "args": ["-y", "@azure-devops/mcp", "<organization>", "-d", "core", "work-items", "repositories", "pipelines"]
+    }
+  }
+}
+```
+
+Your `.mcp.json` can combine several of these under one `mcpServers` object. A person who wants a server only for themselves can add it with `claude mcp add --scope local` instead.
 
 ## Configuration
 
