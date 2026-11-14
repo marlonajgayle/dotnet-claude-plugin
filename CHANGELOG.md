@@ -35,4 +35,9 @@ Targets `0.1.0`.
 - README section on MCP servers, with project-level `.mcp.json` snippets for Playwright, Sentry, Azure MCP (Application Insights and Azure Monitor) and Azure DevOps.
 - Node.js and a GitHub token added to the README prerequisites.
 
+### Changed
+
+- Review output now shares one layout under `reviewsDir` (default `.ai/reviews`). The `review-pr` skill writes `<slug>/review.md` (was `<slug>.md`), beside the reviewer agents' reports, and records the reviewed commit. The `security-audit` skill writes `_audits/<timestamp>.md` (was `.claude/security-audits/`) and honours `reviewsDir`. Reports at the old paths are left in place.
+- The `implementer` agent reads `review.md` when fixing findings. The `approver` agent applies its staleness and open Critical/High gates to `review.md` when it exists; `code.md` and `security.md` are still required.
+
 [Unreleased]: https://github.com/marlonajgayle/dotnet-claude-plugin/commits/main
