@@ -23,7 +23,7 @@ Read, in this order:
 
 1. The spec `<SPECS_DIR>/<slug>.md`: Context, Requirements, Affected surface, UX, Risk notes.
 2. The reports in `<REVIEWS_DIR>/<slug>/`, especially `decision.md`. Note anything flagged as a known limitation.
-3. The code the feature changed (`git diff --name-only origin/main...HEAD`, or `git log --grep <slug>` once merged) and read each file in full:
+3. The code the feature changed (`git diff --name-only <BASE_REF>...HEAD`, or `git log --grep <slug>` once merged) and read each file in full:
    - **Endpoints**: method, full route including the `MapGroup` prefix, authorization policy (and what the policy requires, from `AUTH_POLICIES`), rate-limit policy, request and response types, `.Produces<>` status codes.
    - **Requests and responses**: every property with its type, whether required, and its validator rules (`AbstractValidator<T>`).
    - **Errors**: each `{Entity}Errors` member the handlers return, with its code, message and the HTTP status `ToHttpResult()` maps it to.

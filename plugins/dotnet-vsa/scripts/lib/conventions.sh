@@ -11,7 +11,7 @@
 
 # Project-wide facts, computed once by conv_init.
 CONV_REGS=""            # every Add{Scoped,Transient,Singleton}<...> in the API
-CONV_HANDLER_DI=0       # 1 when handlers are registered by hand (no assembly scanning)
+CONV_HANDLER_DI=0       # 1 unless handlers are registered by assembly scanning
 CONV_OUTBOX_TEXT=""     # the outbox dispatcher source
 CONV_FALLBACK_AUTH=0    # 1 when a FallbackPolicy authorizes every endpoint by default
 CONV_RATE_LIMIT=0       # 1 when the API uses rate limiting without a global limiter
@@ -23,11 +23,50 @@ conv_grep_api() {
   grep -rE --include='*.cs' --exclude-dir=bin --exclude-dir=obj "$@" "$DVSA_API_DIR" 2>/dev/null
 }
 
+# Every Add{Scoped,Transient,Singleton}<...> registration in the API's code, comments removed, as
+# one `AddScoped<Type>` line each. For AddScoped<IService, Impl> the implementation is the type
+# that counts. A registration written only in a comment (the template's example) does not.
+conv_registrations() {
+  dvsa_find "$DVSA_API_DIR" -name '*.cs' | perl -e '
+    while (my $f = <STDIN>) {
+      chomp $f; open(my $fh, "<", $f) or next; local $/; my $s = <$fh>; close $fh;
+      $s =~ s{/\*.*?\*/}{}gs;
+      $s =~ s{(?<![:"])//[^\n]*}{}g;
+      while ($s =~ /\bAdd(Scoped|Transient|Singleton)<((?:[^<>()]|<[^<>()]*>)+)>/g) {
+        my ($life, $args) = ($1, $2);
+        my @types; my $depth = 0; my $cur = "";
+        for my $c (split //, $args) {
+          $depth++ if $c eq "<"; $depth-- if $c eq ">";
+          if ($c eq "," && $depth == 0) { push @types, $cur; $cur = ""; next; }
+          $cur .= $c;
+        }
+        push @types, $cur;
+        (my $impl = $types[-1]) =~ s/\s+//g;
+        print "Add$life<$impl>\n";
+      }
+    }' 2>/dev/null
+}
+
+# Handlers registered by convention rather than one line each: Scrutor, MediatR, Wolverine, or a
+# project helper named Add...HandlersFrom...(). FluentValidation's AddValidatorsFromAssembly... is
+# not handler registration and does not count.
+conv_scans_handlers() {
+  dvsa_find "$DVSA_API_DIR" -name '*.cs' | perl -e '
+    while (my $f = <STDIN>) {
+      chomp $f; open(my $fh, "<", $f) or next; local $/; my $s = <$fh>; close $fh;
+      $s =~ s{/\*.*?\*/}{}gs; $s =~ s{(?<![:"])//[^\n]*}{}g;
+      if ($s =~ /\.Scan\s*\(|\bAddClasses\s*\(|\bAddMediatR\s*\(|\bRegisterServicesFromAssembl|\bAdd\w*HandlersFrom\w*\s*\(|\bAddWolverine\b|\bUseWolverine\b/) { exit 0 }
+    }
+    exit 1' 2>/dev/null
+}
+
 conv_init() {
   [ -n "$DVSA_API_DIR" ] || return 1
 
-  CONV_REGS="$(conv_grep_api -ho 'Add(Scoped|Transient|Singleton)<[^>()]+>')"
-  if printf '%s\n' "$CONV_REGS" | grep -qE 'AddScoped<[^>]*Handler>'; then CONV_HANDLER_DI=1; fi
+  CONV_REGS="$(conv_registrations)"
+  # Checked unless the project registers handlers by scanning. A project with no registration
+  # yet is checked too: its first unregistered handler is exactly the one to catch.
+  conv_scans_handlers || CONV_HANDLER_DI=1
 
   if [ -n "$DVSA_OUTBOX" ] && [ -f "$DVSA_OUTBOX" ]; then CONV_OUTBOX_TEXT="$(cat "$DVSA_OUTBOX")"; fi
 

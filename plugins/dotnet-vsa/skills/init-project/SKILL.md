@@ -1,12 +1,15 @@
 ---
 name: init-project
-description: "Create a new vertical-slice .NET 10 API that the rest of dotnet-vsa works with from day one: a .slnx solution and an ASP.NET Core project with the SharedKernel (Result, Error, auditable and aggregate-root entities with soft delete, domain events), an EF Core SQL Server DbContext that writes events to an outbox, the outbox processor and dispatcher, authorization and rate-limit policy classes, endpoint discovery, a FluentValidation filter, compose.yaml for SQL Server, and .claude/dotnet-vsa.json. Only for a repository with no .NET solution yet. Use when the user says: new project, start a new API, scaffold the project, init project, set up the solution, create the skeleton."
-argument-hint: "<AppName>"
+description: "Create a new vertical-slice .NET 10 API that the rest of dotnet-vsa works with from day one: a .slnx solution and an ASP.NET Core project with the SharedKernel (Result, Error, auditable and aggregate-root entities with soft delete, domain events), an EF Core SQL Server DbContext that writes events to an outbox, the outbox processor and dispatcher, authorization and rate-limit policy classes, endpoint discovery, a FluentValidation filter, and .claude/dotnet-vsa.json, with SQL Server for local development either from compose.yaml or, with --aspire, from an Aspire AppHost with ServiceDefaults and the dashboard. Only for a repository with no .NET solution yet. Use when the user says: new project, start a new API, scaffold the project, init project, set up the solution, create the skeleton, new Aspire app."
+argument-hint: "<AppName> [--aspire]"
 ---
 
 # Init Project
 
-App name: `$ARGUMENTS`
+Arguments: `$ARGUMENTS`
+
+- `AppName`: the solution and namespace root.
+- `--aspire`: run SQL Server and the API through an Aspire AppHost instead of `compose.yaml`. Adds `src/<AppName>.AppHost/` and `src/<AppName>.ServiceDefaults/` (OpenTelemetry to the Aspire dashboard, a `/alive` liveness probe, resilient `HttpClient`s). Without the flag, ask once whether the user wants Aspire when they mention it, observability or a dashboard; otherwise use compose.
 
 Every other skill assumes the project already has a Result type, `{Entity}Errors`, soft delete, an outbox and policy classes. This skill creates them, in the shape the skills, rules and checks expect.
 
@@ -23,7 +26,16 @@ Every other skill assumes the project already has a Result type, `{Entity}Errors
 Show what will be created and ask before writing anything:
 
 - `<AppName>.slnx`, `src/<AppName>.Api/` (layout below), `compose.yaml`, `.claude/dotnet-vsa.json`.
-- `.env` and `src/<AppName>.Api/appsettings.Local.json` with a generated SQL Server password. Both are added to `.gitignore` and must never be committed.
+- `.env` and `src/<AppName>.Api/appsettings.Local.json` with a generated SQL Server password. Both are added to `.gitignore` and must never be committed. (Not with `--aspire`: there the AppHost generates the password and keeps it in its own user secrets, and supplies the connection string to the API.)
+- With `--aspire`: `src/<AppName>.AppHost/` and `src/<AppName>.ServiceDefaults/` instead of `compose.yaml`, and these extra packages:
+
+| Project | Package | Version |
+|---|---|---|
+| AppHost | `Aspire.Hosting.SqlServer` | the same as the Aspire SDK |
+| ServiceDefaults | `Microsoft.Extensions.Http.Resilience`, `Microsoft.Extensions.ServiceDiscovery` | newest 10.x |
+| ServiceDefaults | `OpenTelemetry.Exporter.OpenTelemetryProtocol`, `OpenTelemetry.Extensions.Hosting`, `OpenTelemetry.Instrumentation.AspNetCore`, `OpenTelemetry.Instrumentation.Http`, `OpenTelemetry.Instrumentation.Runtime` | newest stable |
+
+  The Aspire SDK version is the newest stable `Aspire.AppHost.Sdk`; name it in the confirmation.
 - These NuGet packages (the user approves new packages):
 
 | Package | Why | Version |
@@ -54,7 +66,9 @@ src/<AppName>.Api/
 bash "${CLAUDE_SKILL_DIR}/scaffold.sh" <repo-root> <AppName>
 ```
 
-It copies the template, never overwrites a file, and prints every path it wrote. Exit 2 means it refused (the reason is on stderr); report it and stop.
+With `--aspire`, add `--aspire <version>`: choose the newest stable `Aspire.AppHost.Sdk` with the `nuget` MCP tools, or `bash "${CLAUDE_SKILL_DIR}/../../scripts/nuget-version.sh" Aspire.AppHost.Sdk`. The script works offline, so it takes the version rather than looking it up.
+
+It copies the template, never overwrites a file, and prints every path it wrote. With `--aspire` it also wires `AddServiceDefaults()` and `MapDefaultEndpoints()` into `Program.cs` and references ServiceDefaults from the API. Exit 2 means it refused (the reason is on stderr); report it and stop.
 
 ## Step 4: Add the packages
 
@@ -68,6 +82,8 @@ dotnet add package Microsoft.EntityFrameworkCore.SqlServer --version "$v"
 v=$(bash "${CLAUDE_SKILL_DIR}/../../scripts/nuget-version.sh" FluentValidation.DependencyInjectionExtensions)
 dotnet add package FluentValidation.DependencyInjectionExtensions --version "$v"
 ```
+
+With `--aspire`, also add the packages from the Aspire table: `Aspire.Hosting.SqlServer` at the SDK version in the AppHost, the two `Microsoft.Extensions.*` packages with major 10 in ServiceDefaults, and the OpenTelemetry packages at their newest stable version. The `Microsoft.Extensions.*` packages follow .NET's major version, so an unpinned add can pick one for a newer .NET.
 
 ## Step 5: Build and verify
 
@@ -84,7 +100,7 @@ Ask before each; do not run them unasked:
 
 1. **Rules:** `install-rules`, so the conventions load when Claude edits matching files.
 2. **Tests:** `bootstrap-tests` for the conventions tests, then `write-integration-tests` once the first slice exists.
-3. **Database:** `docker compose up -d`, then the first entity with `add-entity` and its migration with `ef-add-migration` (create migrations with `ASPNETCORE_ENVIRONMENT=Local` so the Local connection string is used).
+3. **Database:** `docker compose up -d` (with `--aspire`: the `run-api` skill starts the AppHost, which starts SQL Server; Docker or Podman must be running), then the first entity with `add-entity` and its migration with `ef-add-migration` (create migrations with `ASPNETCORE_ENVIRONMENT=Local` so the Local connection string is used). With `--aspire` the connection string exists only while the AppHost runs: apply migrations with `dotnet ef database update --connection "<connection string>"`, copying it from the `sql` resource in the dashboard. It points at `127.0.0.1`, which the Bash guard accepts as local.
 4. **A token for local calls:** `dotnet user-jwts create --role admin` prints a bearer token that the Local environment accepts.
 
 ## Report

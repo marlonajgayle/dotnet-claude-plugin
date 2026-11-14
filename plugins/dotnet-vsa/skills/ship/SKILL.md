@@ -19,7 +19,7 @@ You coordinate; the agents do the work. Each runs in its own context, writes its
 
 ## Step 0: Set up
 
-Run `bash "${CLAUDE_SKILL_DIR}/../../scripts/discover.sh"`. Use `SPECS_DIR` and `REVIEWS_DIR`.
+Run `bash "${CLAUDE_SKILL_DIR}/../../scripts/discover.sh"`. Use `SPECS_DIR`, `REVIEWS_DIR` and `BASE_REF`.
 
 - If the argument names an existing spec (`<SPECS_DIR>/<slug>.md`), use it and start at implementation (or at `--from`). Otherwise treat the argument as a request.
 - `git status --short` must be empty, unless resuming with `--from`. Otherwise ask the user to commit or stash first: the run commits as it goes, and must not sweep up unrelated changes.
@@ -44,7 +44,21 @@ Launch the `implementer` agent (`dotnet-vsa:implementer`) with the slug. It crea
 
 ## Step 3: Review
 
-Launch the `code-reviewer`, `security-reviewer` and `ux-reviewer` agents (`dotnet-vsa:code-reviewer`, `dotnet-vsa:security-reviewer`, `dotnet-vsa:ux-reviewer`) in the same message, so they run in parallel. Each needs only the slug.
+First decide whether the UX reviewer has anything to look at. List the branch's changed files with `git diff --name-only <BASE_REF>...HEAD` (`BASE_REF` from Step 0's discovery). The user-facing surface is `*.razor`, `*.razor.cs`, `*.razor.css`, `*.cshtml`, `*.css`, `*.scss`, `*.js`/`*.ts` under `wwwroot/`, `*.resx`, images and icons, and any `*Validator.cs` or `*Errors.cs` (their messages reach users).
+
+- **Something user-facing changed:** launch the `code-reviewer`, `security-reviewer` and `ux-reviewer` agents (`dotnet-vsa:code-reviewer`, `dotnet-vsa:security-reviewer`, `dotnet-vsa:ux-reviewer`) in the same message, so they run in parallel. Each needs only the slug.
+- **Nothing user-facing changed:** launch only the code and security reviewers, in the same message. Write the UX report yourself, so the record is complete without spending a reviewer on it. `mkdir -p "<REVIEWS_DIR>/<slug>"`, then write `<REVIEWS_DIR>/<slug>/ux.md`:
+
+  ```markdown
+  # UX review: <slug>
+  **Branch**: <branch> · **Commit**: <git rev-parse HEAD> · **Design doc**: not read · **Date**: <YYYY-MM-DD>
+  **Verdict**: NOT APPLICABLE
+  **Counts**: Critical 0 · High 0 · Medium 0 · Low 0
+
+  No user-facing file changed against <BASE_REF>, so the ux-reviewer was not run. Written by the ship skill.
+  ```
+
+  Check the list again on every round: a fix that touches a validator or a page brings the UX reviewer back.
 
 Then read `<REVIEWS_DIR>/<slug>/code.md`, `security.md` and `ux.md`. For each, note the verdict, the open Critical and High findings, and whether its **Commit** is `git rev-parse HEAD`. A report that is missing or names another commit counts as not done: launch that reviewer again once.
 
@@ -82,4 +96,4 @@ Unless `--no-docs`, launch the `documenter` agent (`dotnet-vsa:documenter`) with
 - Stop at every stop point above; never answer an agent's question or an open spec question on the user's behalf.
 - Never edit code yourself. Changes go through the implementer, so they are verified and reported.
 - Never commit to `main` or `master`, push, open a PR or merge unless the user asks.
-- Never skip a reviewer, and never pass the approver a report that does not match `HEAD`.
+- Never skip the code or security reviewer. Skip the UX reviewer only when no user-facing file changed, and then write its not-applicable report as Step 3 describes. Never pass the approver a report that does not match `HEAD`.

@@ -57,6 +57,39 @@ report="$(bash "$PLUGIN_DIR/scripts/verify-conventions.sh" --root "$repo" --no-b
 expect_contains 'outbox: an event without a branch fails' "$report" 'OrderPlaced has no nameof(OrderPlaced) branch'
 expect_contains 'outbox: the comment example does not count' "$report" 'EventName has no nameof(EventName) branch'
 
+# --- --aspire --------------------------------------------------------------------------------
+asp="$T_TMP/aspire"; t_repo "$asp"
+run "$asp" Contoso.Shop --aspire 13.6.5
+expect_rc 'aspire: writes a new project' 0
+for f in Contoso.Shop.slnx "$api/Program.cs" src/Contoso.Shop.AppHost/Contoso.Shop.AppHost.csproj \
+         src/Contoso.Shop.AppHost/AppHost.cs src/Contoso.Shop.AppHost/Properties/launchSettings.json \
+         src/Contoso.Shop.ServiceDefaults/Contoso.Shop.ServiceDefaults.csproj src/Contoso.Shop.ServiceDefaults/Extensions.cs; do
+  if [ -f "$asp/$f" ]; then ok; else bad "aspire: wrote $f"; fi
+done
+for f in compose.yaml .env "$api/appsettings.Local.json"; do
+  if [ -e "$asp/$f" ]; then bad "aspire: does not write $f"; else ok; fi
+done
+expect_eq 'aspire: no template token is left' "$(grep -rl 'DvsaTemplate\|__[A-Z_]*__' "$asp" --exclude-dir=.git)" ''
+expect_eq 'aspire: no build output copied' "$(find "$asp" -name obj -o -name bin)" ''
+expect_contains 'aspire: SDK version' "$(cat "$asp/src/Contoso.Shop.AppHost/Contoso.Shop.AppHost.csproj")" 'Sdk="Aspire.AppHost.Sdk/13.6.5"'
+expect_contains 'aspire: generated project class uses underscores' "$(cat "$asp/src/Contoso.Shop.AppHost/AppHost.cs")" 'Projects.Contoso_Shop_Api'
+expect_contains 'aspire: database name' "$(cat "$asp/src/Contoso.Shop.AppHost/AppHost.cs")" 'databaseName: "ContosoShop"'
+expect_contains 'aspire: solution lists the AppHost' "$(cat "$asp/Contoso.Shop.slnx")" 'src/Contoso.Shop.AppHost/Contoso.Shop.AppHost.csproj'
+expect_contains 'aspire: API references ServiceDefaults' "$(cat "$asp/$api/Contoso.Shop.Api.csproj")" '..\Contoso.Shop.ServiceDefaults\Contoso.Shop.ServiceDefaults.csproj'
+prog="$(cat "$asp/$api/Program.cs")"
+expect_contains 'aspire: Program.cs adds the service defaults' "$prog" 'builder.AddServiceDefaults();'
+expect_contains 'aspire: Program.cs maps the default endpoints' "$prog" 'app.MapDefaultEndpoints();'
+expect_eq 'aspire: /health is mapped once' "$(grep -c 'MapHealthChecks("/health")' "$asp/$api/Program.cs" "$asp/src/Contoso.Shop.ServiceDefaults/Extensions.cs" | awk -F: '{s+=$2} END {print s}')" 1
+expect_eq 'aspire: the two user-secrets ids differ' \
+  "$(grep -ho '<UserSecretsId>[^<]*' "$asp/$api/Contoso.Shop.Api.csproj" "$asp/src/Contoso.Shop.AppHost/Contoso.Shop.AppHost.csproj" | sort -u | wc -l | tr -d ' ')" 2
+disc="$(bash "$PLUGIN_DIR/scripts/discover.sh" "$asp")"
+expect_contains 'aspire: discover finds the API, not the AppHost' "$disc" "API_PROJECT=$api/Contoso.Shop.Api.csproj"
+expect_contains 'aspire: discover reports the AppHost' "$disc" 'APP_HOST=src/Contoso.Shop.AppHost/Contoso.Shop.AppHost.csproj'
+report="$(bash "$PLUGIN_DIR/scripts/verify-conventions.sh" --root "$asp" --no-build 2>&1)"; RC=$?
+expect_eq 'aspire: convention checks pass' "$RC" 0
+run "$T_TMP/aspire-bad" Shop --aspire latest; expect_rc 'aspire: refuses a version that is not a version' 2
+run "$T_TMP/aspire-bad" Shop --aspire; expect_rc 'aspire: needs the version' 64
+
 # --- refusals ------------------------------------------------------------------------------
 run "$repo" Other;               expect_rc 'refuses a repo that already has a project' 2
 expect_contains 'says why' "$ERR" 'already has a .NET solution or project'

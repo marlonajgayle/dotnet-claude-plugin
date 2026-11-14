@@ -11,7 +11,7 @@
     {
       "name": "dotnet-vsa",
       "source": "./plugins/dotnet-vsa",
-      "description": "Slash commands, review/security subagents, guardrail hooks, MCP servers, and skills for .NET 10 development.",
+      "description": "Skills, review and security subagents, guardrail hooks and MCP servers for .NET 10 APIs built with DDD and Vertical Slice Architecture.",
       "version": "0.1.0"
     }
   ]

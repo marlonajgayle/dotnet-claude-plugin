@@ -6,7 +6,7 @@ argument-hint: "[changed]"
 
 # Audit Authorization
 
-Read-only. Produces the route table that IDOR and missing-policy findings come from. `changed` limits the table to endpoints changed against `origin/main`; the default is every endpoint.
+Read-only. Produces the route table that IDOR and missing-policy findings come from. `changed` limits the table to endpoints changed against `BASE_REF` from `scripts/discover.sh`; the default is every endpoint.
 
 ## Step 0: Locate
 

@@ -38,7 +38,8 @@ Locates the API folder from the test assembly by walking up to the directory con
 
 `Conventions/HandlerRegistrationTests.cs`
 - Collect every `ClassDeclarationSyntax` under `Features/` whose name ends in `Handler`, skipping `abstract` classes and classes deriving from `DelegatingHandler`, `AuthorizationHandler<>` or `AuthenticationHandler<>`.
-- Collect registered names with the regex `AddScoped<(?:[\w.]+\.)?(\w+)>` over every `.cs` file (registrations may live outside `Program.cs`).
+- Collect registered names from `AddScoped<...>` invocations in the syntax trees of every `.cs` file (registrations may live outside `Program.cs`). Walk `InvocationExpressionSyntax` nodes rather than matching text, so a registration that exists only in a comment does not count. For `AddScoped<IService, Impl>` the last type argument is the handler. Match on the type's simple name.
+- If the API registers handlers by scanning (`Scan(`, `AddClasses(`, `AddMediatR(`, `RegisterServicesFromAssembly`, or a helper named `Add...HandlersFrom...`), skip the test with that reason, as the plugin's own check does. `AddValidatorsFromAssembly...` is not handler registration.
 - Assert the difference is empty; the failure message lists the missing handlers and says "register-handler <Name>".
 
 `Conventions/DomainEventDispatchTests.cs`

@@ -27,7 +27,7 @@ Run `bash "${CLAUDE_SKILL_DIR}/../../scripts/discover.sh"`; use `HEALTH_URL` and
 
 Try `/openapi/v1.json`, then `/swagger/v1/swagger.json`, then any path `MapOpenApi(...)` sets in the source. With `jq`: count `.paths`, count operations, and group operations by tag.
 
-Then compare with the branch: from `git diff --name-only origin/main...HEAD` (plus untracked files), read each changed `*Endpoint.cs` and extract its route template and method. Each one should appear in `.paths` (allow for a version prefix such as `/api/v1`). A missing route is High, and the likely causes are: the endpoint class does not implement `IEndpoint`, the file is excluded from compilation, or the app was started before the change (restart with `run-api stop` then `run-api`).
+Then compare with the branch: from `git diff --name-only <BASE_REF>...HEAD` (plus untracked files), read each changed `*Endpoint.cs` and extract its route template and method. Each one should appear in `.paths` (allow for a version prefix such as `/api/v1`). A missing route is High, and the likely causes are: the endpoint class does not implement `IEndpoint`, the file is excluded from compilation, or the app was started before the change (restart with `run-api stop` then `run-api`).
 
 ## Step 4: Report
 

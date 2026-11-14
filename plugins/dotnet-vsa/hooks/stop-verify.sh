@@ -11,7 +11,8 @@
 #   (the default) runs none. "stopTestsFilter" is added to the filter; it defaults to
 #   "Category!=Integration" so tests that need Docker stay out of the end-of-turn check.
 # - Blocks at most 3 times in a row, then lets the turn end and tells the user, so an
-#   unfixable or pre-existing failure cannot trap the session in a loop.
+#   unfixable or pre-existing failure cannot trap the session in a loop. "In a row" follows
+#   stop_hook_active: a stop that is not continuing from a block starts the count again.
 . "$(dirname "$0")/../scripts/lib/common.sh"
 
 MAX_BLOCKS=3
@@ -25,6 +26,9 @@ dvsa_discover "$cwd"
 
 sid="$(dvsa_in '.session_id')"
 state="$(dvsa_state_dir "${sid:-unknown}")"
+# stop_hook_active is true only when this turn is already continuing because a Stop hook blocked
+# it. Any other stop starts a fresh chain, so a count left by an interrupted chain is dropped.
+[ "$(dvsa_in '.stop_hook_active')" = "true" ] || rm -f "$state/blocks"
 since="$(cat "$state/start-sha" 2>/dev/null)"
 [ -n "$since" ] || since="$(git -C "$DVSA_ROOT" rev-parse HEAD 2>/dev/null)"
 [ -n "$since" ] || exit 0

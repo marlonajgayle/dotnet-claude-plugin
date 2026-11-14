@@ -44,8 +44,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "dotnet",
-            "args": ["run", "--file", "${CLAUDE_PLUGIN_ROOT}/scripts/format-csharp.cs"],
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/format-csharp.sh\"",
             "timeout": 180,
             "statusMessage": "Running dotnet format"
           },

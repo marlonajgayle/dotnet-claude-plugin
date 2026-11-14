@@ -122,6 +122,54 @@ expect_eq 'GlobalLimiter switches rate-limit off' "$(printf '%s\n' "$FOUND" | gr
 expect_eq 'a global query filter switches soft-delete off' "$(printf '%s\n' "$FOUND" | grep -c "${TAB}soft-delete${TAB}")" 0
 expect_eq 'a model-wide converter switches utc-kinds off' "$(printf '%s\n' "$FOUND" | grep -c "${TAB}utc-kinds${TAB}")" 0
 
+# --- handler registration edge cases ---------------------------------------------------------
+# A registration written only in a comment does not count.
+commented="$T_TMP/shop-commented"; t_fixture_repo "$commented"
+printf '// builder.Services.AddScoped<CancelOrderHandler>();\n/* builder.Services.AddScoped<CancelOrderHandler>(); */\n' >> "$commented/$api/Program.cs"
+FOUND="$(findings "$commented")"
+has FAIL handler-di "$orders/CancelOrder/CancelOrderHandler.cs"
+
+# AddScoped<IService, Impl> registers the implementation.
+iface="$T_TMP/shop-iface"; t_fixture_repo "$iface"
+echo 'builder.Services.AddScoped<IHandler<CancelOrderCommand>, CancelOrderHandler>();' >> "$iface/$api/Program.cs"
+FOUND="$(findings "$iface")"
+has PASS handler-di "$orders/CancelOrder/CancelOrderHandler.cs"
+
+# The first handler in a project with no registrations yet is still checked.
+first="$T_TMP/shop-first"; t_fixture_repo "$first"
+grep -v 'Handler>()' "$first/$api/Program.cs" > "$first/p.tmp" && mv "$first/p.tmp" "$first/$api/Program.cs"
+FOUND="$(findings "$first")"
+has FAIL handler-di "$orders/CreateOrder/CreateOrderHandler.cs"
+
+# Assembly scanning switches the check off; FluentValidation's assembly registration does not.
+for scan in 'builder.Services.Scan(s => s.FromAssemblyOf<Program>().AddClasses());' \
+            'builder.Services.AddMediatR(c => c.RegisterServicesFromAssembly(typeof(Program).Assembly));'; do
+  scanned="$T_TMP/shop-scan"; rm -rf "$scanned"; t_fixture_repo "$scanned"
+  echo "$scan" >> "$scanned/$api/Program.cs"
+  FOUND="$(findings "$scanned")"
+  expect_eq "scanning switches handler-di off: ${scan%%(*}" "$(printf '%s\n' "$FOUND" | grep -c "${TAB}handler-di${TAB}")" 0
+done
+validators="$T_TMP/shop-validators"; t_fixture_repo "$validators"
+echo 'builder.Services.AddValidatorsFromAssemblyContaining<Program>();' >> "$validators/$api/Program.cs"
+FOUND="$(findings "$validators")"
+has FAIL handler-di "$orders/CancelOrder/CancelOrderHandler.cs"
+
+# --- discovery: "test" in the path above the repo, or inside a word ----------------------------
+latest="$T_TMP/latest/Contest"; mkdir -p "$T_TMP/latest"; t_fixture_repo "$latest"
+expect_contains 'discover: a repo under a folder named latest/ is found' \
+  "$(bash "$PLUGIN_DIR/scripts/discover.sh" "$latest")" "API_PROJECT=$api/Fixture.Api.csproj"
+contest="$T_TMP/contest-repo"; t_fixture_repo "$contest"
+git -C "$contest" mv -k "$api" src/Contest.Api >/dev/null 2>&1
+git -C "$contest" mv -k src/Contest.Api/Fixture.Api.csproj src/Contest.Api/Contest.Api.csproj >/dev/null 2>&1
+expect_contains 'discover: a project named Contest.Api is not a test project' \
+  "$(bash "$PLUGIN_DIR/scripts/discover.sh" "$contest")" 'API_PROJECT=src/Contest.Api/Contest.Api.csproj'
+webtests="$T_TMP/webtests"; t_fixture_repo "$webtests"
+mkdir -p "$webtests/src/Fixture.Api.Tests" "$webtests/tests/Web"
+printf '<Project Sdk="Microsoft.NET.Sdk.Web" />\n' > "$webtests/src/Fixture.Api.Tests/Fixture.Api.Tests.csproj"
+printf '<Project Sdk="Microsoft.NET.Sdk.Web" />\n' > "$webtests/tests/Web/A.csproj"
+expect_contains 'discover: web SDK test projects are skipped' \
+  "$(bash "$PLUGIN_DIR/scripts/discover.sh" "$webtests")" "API_PROJECT=$api/Fixture.Api.csproj"
+
 overridden="$T_TMP/shop-config"; t_fixture_repo "$overridden"
 config "$overridden" '{"reviewsDir": "docs/reviews", "localEnvironment": "Dev", "healthUrl": "https://localhost:5001/healthz"}'
 disc="$(bash "$PLUGIN_DIR/scripts/discover.sh" "$overridden")"
@@ -148,7 +196,9 @@ edited "$empty/Tool.cs";                                   expect_allowed 'post-
 stop="$T_TMP/shop-stop"; t_fixture_repo "$stop"
 config "$stop" '{"fast": true}'
 git -C "$stop" add -A && t_git -C "$stop" commit -q -m "chore: config"
-stopped() { run_hook stop-verify.sh "$(jq -n --arg cwd "$stop" --arg sid "$1" '{hook_event_name: "Stop", cwd: $cwd, session_id: $sid}')"; }
+# stopped SESSION [STOP_HOOK_ACTIVE]: the second argument is true when the turn is continuing
+# because the Stop hook blocked it.
+stopped() { run_hook stop-verify.sh "$(jq -n --arg cwd "$stop" --arg sid "$1" --argjson active "${2:-false}" '{hook_event_name: "Stop", cwd: $cwd, session_id: $sid, stop_hook_active: $active}')"; }
 
 stopped s1; expect_allowed 'stop: silent when no API code changed'
 
@@ -157,9 +207,12 @@ sed 's/CancelOrder/RefundOrder/g' "$stop/$orders/CancelOrder/CancelOrderHandler.
 stopped s1; expect_blocked 'stop: blocks on a failing check in changed code' 'RefundOrderHandler has no AddScoped<>'
 expect_contains 'stop: counts the attempt' "$ERR" 'attempt 1 of 3'
 expect_lacks 'stop: ignores failures in unchanged files' "$ERR" 'CancelOrderHandler'
-stopped s1; expect_contains 'stop: second attempt' "$ERR" 'attempt 2 of 3'
-stopped s1; expect_contains 'stop: third attempt' "$ERR" 'attempt 3 of 3'
-stopped s1
+stopped s1 true; expect_contains 'stop: second attempt' "$ERR" 'attempt 2 of 3'
+# The user interrupts, then a new turn ends: not a continuation, so the count starts again.
+stopped s1; expect_contains 'stop: a fresh stop resets the count' "$ERR" 'attempt 1 of 3'
+stopped s1 true; expect_contains 'stop: second attempt' "$ERR" 'attempt 2 of 3'
+stopped s1 true; expect_contains 'stop: third attempt' "$ERR" 'attempt 3 of 3'
+stopped s1 true
 expect_rc 'stop: lets the turn end after three blocks' 0
 expect_contains 'stop: says it gave up' "$(printf '%s' "$OUT" | jq -r '.systemMessage' 2>/dev/null)" 'still failing after 3 attempts'
 
