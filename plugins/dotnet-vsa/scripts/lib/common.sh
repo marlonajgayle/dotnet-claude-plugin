@@ -50,11 +50,12 @@ dvsa_repo_root() {
   git -C "$dir" rev-parse --show-toplevel 2>/dev/null || printf '%s\n' "$dir"
 }
 
-# Reads a key from <root>/.claude/dotnet-vsa.json.
+# Reads a key from <root>/.claude/dotnet-vsa.json. Prints nothing when the key is absent or
+# null; a key set to false prints "false" (jq's `//` would drop it, which is why it is not used).
 dvsa_config() {
   local root="$1" key="$2" file="$1/.claude/dotnet-vsa.json"
   [ -f "$file" ] && dvsa_have jq || return 0
-  jq -r "$key // empty" "$file" 2>/dev/null
+  jq -r "$key | if . == null then empty else . end" "$file" 2>/dev/null
 }
 
 # Is a check enabled? Defaults to on.

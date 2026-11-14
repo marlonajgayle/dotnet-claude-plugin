@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # The hooks run on developers' machines: GNU tools on Linux, BSD tools and bash 3.2 on macOS.
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run the hook and convention tests
+        run: bash tests/run.sh
+
+  macos-system-bash:
+    name: Tests (macOS /bin/bash 3.2)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run the tests with the system bash
+        run: /bin/bash tests/run.sh
+
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Errors only for now. Lower to `-S warning` once the scripts are clean at that level.
+      - name: Lint shell scripts
+        run: |
+          shellcheck --version
+          git ls-files -z '*.sh' | xargs -0 shellcheck -x -S error -e SC1090,SC1091
+
+  validate:
+    name: Validate plugin manifests
+    runs-on: ubuntu-latest
+    # `claude plugin validate` passes locally; whether it runs without signing in on a CI
+    # runner is unconfirmed, so this job reports without failing the workflow until it is.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --global @anthropic-ai/claude-code
+      - run: claude plugin validate .
+      - run: claude plugin validate plugins/dotnet-vsa
