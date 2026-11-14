@@ -63,6 +63,31 @@ for name in $(sed -n '/^## Agents/,/^## MCP servers/p' README.md | sed -n 's/^| 
   if [ -f "$PLUGIN_DIR/skills/$name/SKILL.md" ] || [ -f "$PLUGIN_DIR/agents/$name.md" ]; then ok
   else bad "README lists a skill or agent that does not exist: $name"; fi
 done
+# --- rules ---------------------------------------------------------------------------------
+# Each rule is path-scoped (a rule without `paths:` would load in every session), has a quoted
+# glob per line, stays short, and has a row in the README.
+rules_found=0
+for f in "$PLUGIN_DIR"/rules/*.md; do
+  [ -f "$f" ] || continue
+  rules_found=$((rules_found + 1))
+  name="$(basename "$f")"
+  if [ "$(head -n 1 "$f")" = "---" ] && frontmatter "$f" | grep -q '^paths:$'; then ok
+  else bad "rule starts with paths: frontmatter: $name"; fi
+  patterns="$(frontmatter "$f" | grep -v '^paths:$')"
+  if [ -n "$patterns" ] && ! printf '%s\n' "$patterns" | grep -qvE '^  - "[^"]+"$'; then ok
+  else bad "rule paths are a list of quoted globs: $name" "$patterns"; fi
+  if [ "$(wc -l < "$f")" -le 40 ]; then ok; else bad "rule is 40 lines or fewer: $name"; fi
+  if grep -q "^| \`$name\` |" README.md; then ok; else bad "README rules table lists: $name"; fi
+  # Skills a rule points to exist.
+  for skill in $(grep -o '`[a-z][a-z-]*` skill' "$f" | tr -d '`' | sed 's/ skill$//' | sort -u); do
+    if [ -f "$PLUGIN_DIR/skills/$skill/SKILL.md" ]; then ok; else bad "rule $name names a missing skill: $skill"; fi
+  done
+done
+if [ "$rules_found" -gt 0 ]; then ok; else bad 'the plugin ships at least one rule'; fi
+for name in $(sed -n '/^## Rules/,/^## Skills/p' README.md | sed -n 's/^| `\([a-z0-9-]*\.md\)` |.*/\1/p'); do
+  if [ -f "$PLUGIN_DIR/rules/$name" ]; then ok; else bad "README lists a rule that does not exist: $name"; fi
+done
+
 # Plugin scripts that skills and agents tell Claude to run exist.
 for rel in $(grep -rhoE '\$\{CLAUDE_SKILL_DIR\}/\.\./\.\./scripts/[A-Za-z0-9_./-]+' "$PLUGIN_DIR/skills" "$PLUGIN_DIR/agents" | sed 's|.*/\.\./\.\./||' | sort -u); do
   if [ -f "$PLUGIN_DIR/$rel" ]; then ok; else bad "a skill names a missing script: $rel"; fi

@@ -1,12 +1,12 @@
 ---
 name: install-rules
-description: "Copy or refresh the dotnet-vsa plugin's path-scoped rule files into the repo's .claude/rules/, showing a diff first, so the rules load only for the paths they apply to. Fallback for Claude Code versions that do not load a plugin's own rules directory. Use when the user says: install rules, update rules, sync plugin rules, refresh .claude/rules."
+description: "Copy or refresh the dotnet-vsa plugin's path-scoped rule files into the repo's .claude/rules/, showing a diff first, so each rule loads only when Claude works on a file it applies to (handlers, endpoints, entities, domain events, migrations, DTOs, appsettings). Claude Code does not load rules from a plugin, so this is how they reach a project. Use when the user says: install rules, update rules, sync plugin rules, refresh .claude/rules."
 argument-hint: "[--check]"
 ---
 
 # Install Rules
 
-The plugin's rules live once in the plugin (`${CLAUDE_SKILL_DIR}/../../rules/`). This skill copies them into the repo's `.claude/rules/dotnet-vsa/`, where Claude Code loads `*.md` rule files and honours their `paths:` frontmatter. `--check` reports drift without writing anything.
+The plugin's rules live once in the plugin (`${CLAUDE_SKILL_DIR}/../../rules/`). Claude Code loads rules only from a project's `.claude/rules/` (or `~/.claude/rules/`), not from a plugin, so this skill copies them into the repo's `.claude/rules/dotnet-vsa/`. There Claude Code finds `*.md` files recursively and honours their `paths:` frontmatter: a rule enters context when Claude reads or edits a matching file. `--check` reports drift without writing anything.
 
 ## Step 1: Source
 
@@ -20,8 +20,8 @@ A changed target may hold local edits. Say so, and never overwrite it without th
 
 ## Step 3: Apply (unless `--check`)
 
-After the user confirms: copy new and changed files, and delete removed ones only if the user agrees. Write `.claude/rules/dotnet-vsa/.source` containing the plugin version from `${CLAUDE_SKILL_DIR}/../../.claude-plugin/plugin.json`, so later runs can say what version is installed.
+After the user confirms: copy new and changed files, and delete removed ones only if the user agrees. Write `.claude/rules/dotnet-vsa/.source` containing only the plugin version from `${CLAUDE_SKILL_DIR}/../../.claude-plugin/plugin.json` (for example `0.1.0`) on one line. Later runs and the session-start message read it to say what version is installed.
 
 ## Step 4: Report
 
-New, updated, unchanged and removed counts; the installed version; and a reminder to commit `.claude/rules/dotnet-vsa/` so the whole team gets the same rules.
+New, updated, unchanged and removed counts; the installed version; and a reminder to commit `.claude/rules/dotnet-vsa/` so the whole team gets the same rules. If the project's files do not match a rule's `paths:` patterns (for example handlers that are not under `Features/`), say which rule will never load and suggest a project-specific copy outside the `dotnet-vsa/` folder with adjusted patterns.

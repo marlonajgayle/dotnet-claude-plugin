@@ -55,6 +55,30 @@ A typical run: ask for the spec, then "use the implementer agent on <slug>", the
 
 The approver sends a change to a human when any gate fails (dirty tree, missing or stale review, open Critical or High finding, failing verification or checks) or when its risk is above `approver.maxAutoMergeRisk`. Migrations that alter data, authentication and authorization changes, breaking API contract changes and hotfixes are always Critical; any other migration, `Program.cs` pipeline changes, new packages, new anonymous endpoints and infrastructure files are High.
 
+## Rules
+
+Hooks catch a broken convention after Claude writes it. Rules put the convention in front of Claude before it writes: each one loads into context only when Claude reads or edits a file it applies to.
+
+| Rule | Loads for | Covers |
+|---|---|---|
+| `handlers.md` | `**/Features/**/*Handler.cs` | DI registration, the Result pattern, `AsNoTracking` with `!IsDeleted`, auditing, soft delete, UTC projections. |
+| `endpoints.md` | `**/Features/**/*Endpoint.cs`, `*Endpoints.cs` | Authorization policy, the `// anonymous:` marker, rate limiting, ownership checks. |
+| `entities.md` | `**/Domain/**/*.cs`, `**/Configurations/*Configuration.cs` | No `= new()` navigations, errors classes, max lengths and precision, filtered indexes. |
+| `domain-events.md` | `**/*Event.cs`, `*Events.cs`, `*EventHandler.cs`, `**/Outbox/**/*.cs` | The event, handler, registration and outbox dispatch branch go together. |
+| `migrations.md` | `**/Migrations/*.cs` | Committed migrations are immutable; local-only `dotnet ef` commands. |
+| `dtos.md` | `**/Features/**/*Dto.cs`, `*Response.cs`, `*Query.cs` | UTC `DateTime` kinds, sealed records, no entities or private fields in responses. |
+| `config.md` | `**/appsettings*.json` | No secrets outside `appsettings.Local.json`. |
+
+Claude Code loads rules from a project's `.claude/rules/`, not from a plugin, so install them once per repository:
+
+```text
+/dotnet-vsa:install-rules
+```
+
+The skill copies the files to `.claude/rules/dotnet-vsa/`, shows a diff before changing anything, and records the plugin version. Commit that folder so the whole team gets the rules. After a plugin update, the session-start message says when the installed rules are older than the plugin, and `install-rules --check` shows what changed.
+
+The patterns assume slices under `Features/` and entities under `Domain/`. If your layout differs, keep your own copies outside the `dotnet-vsa/` folder with adjusted `paths:`; the skill never writes there.
+
 ## Skills
 
 | Skill | Purpose |
@@ -82,7 +106,7 @@ The approver sends a change to a human when any gate fails (dirty tree, missing 
 | `smoke-health` | Check `/health`, the OpenAPI document and that this branch's routes are live. |
 | `write-feature-docs` | Tutorial-style feature guide in `docs/features/<slug>.md`: steps with commands and output, a Mermaid diagram, and endpoint, error, event and configuration reference. |
 | `backlog-sync` | Add or close items in `.ai/backlog.md`. |
-| `install-rules` | Copy the plugin's path-scoped rules into `.claude/rules/` (once the plugin ships rules). |
+| `install-rules` | Copy the plugin's path-scoped rules into `.claude/rules/dotnet-vsa/`, showing a diff first. See [Rules](#rules). |
 
 ## MCP servers
 
@@ -243,6 +267,7 @@ bash tests/run.sh test-guard-bash.sh     # one file
 | `tests/test-guard-config-secrets.sh` | Secrets in `appsettings*.json`, placeholders, and that a block reason never repeats the secret. |
 | `tests/test-guard-migrations.sh` | Committed, new and snapshot migration files, in a temporary git repository. |
 | `tests/test-conventions.sh` | Every convention check against the fixture API in `tests/fixtures/api`, through `discover.sh`, `verify-conventions.sh`, the post-edit hook and the Stop hook, plus the `.claude/dotnet-vsa.json` switches. |
-| `tests/test-static.sh` | JSON, bash and perl syntax; manifest versions; that every skill and agent has matching frontmatter and a row in this README. |
+| `tests/test-session-start.sh` | The session-start context, including the notice for rules that are missing or older than the plugin. |
+| `tests/test-static.sh` | JSON, bash and perl syntax; manifest versions; that every skill, agent and rule has valid frontmatter and a row in this README. |
 
 When you change a hook or a check, add the case to the matching file. GitHub Actions runs the suite on Linux and macOS (including the system bash 3.2) for every pull request, with ShellCheck and `claude plugin validate`.

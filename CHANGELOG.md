@@ -35,6 +35,7 @@ Targets `0.1.0`.
 - README section on MCP servers, with project-level `.mcp.json` snippets for Playwright, Sentry, Azure MCP (Application Insights and Azure Monitor) and Azure DevOps.
 - Node.js and a GitHub token added to the README prerequisites.
 - Test suite for the hooks and convention checks (`tests/run.sh`, needs only `bash`, `git`, `jq` and `perl`) with a fixture API, and a GitHub Actions workflow that runs it on Linux and macOS with ShellCheck and `claude plugin validate`.
+- Seven path-scoped rule files in `rules/` (handlers, endpoints, entities, domain events, migrations, DTOs, appsettings), each restating the conventions the hooks check so Claude sees them before it writes. The `install-rules` skill copies them into a project's `.claude/rules/dotnet-vsa/`, and `session-start.sh` says when they are missing or older than the plugin.
 
 ### Fixed
 
