@@ -6,5 +6,5 @@
     "name": "Marlon Gayle"
   },
   "license": "Apache-2.0",
-  "keywords": ["dotnet", "csharp", "aspnetcore", "blazor", "azure", "ddd", "vertical-slice"]
+  "keywords": ["dotnet", "csharp", "aspnetcore", "ddd", "vertical-slice"]
 }
