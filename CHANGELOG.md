@@ -15,6 +15,7 @@ the pinned version until it changes.
 ### Added
 
 - README installation section, covering the CLI, the VS Code extension and team-wide setup through `.claude/settings.json`.
+- Step-by-step user guide in `docs/user-guide.md`: installation, setting up a new or existing project, building and shipping a feature, guardrails, team setup and troubleshooting.
 
 ## [0.1.0] - 2026-11-14
 

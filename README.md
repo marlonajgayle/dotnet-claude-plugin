@@ -1,6 +1,8 @@
 # dotnet-claude-plugin
 Claude Code plugin marketplace with an agentic harness for .NET 10 projects. Ships skills (each one also a slash command), review and security subagents, guardrail hooks and MCP servers that enforce Domain-Driven Design with Vertical Slice Architecture, so Claude builds ASP.NET Core APIs the way your team does.
 
+New to the plugin? The [user guide](docs/user-guide.md) walks through installation, project setup and everyday use step by step.
+
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
