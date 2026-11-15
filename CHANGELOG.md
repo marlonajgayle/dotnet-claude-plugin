@@ -17,6 +17,14 @@ the pinned version until it changes.
 - README installation section, covering the CLI, the VS Code extension and team-wide setup through `.claude/settings.json`.
 - Step-by-step user guide in `docs/user-guide.md`: installation, setting up a new or existing project, building and shipping a feature, guardrails, team setup and troubleshooting.
 
+### Changed
+
+- The README and user guide install the plugin at project scope (`--scope project`), recorded in each repository's `.claude/settings.json`, instead of for the user account.
+
+### Removed
+
+- `init-project --aspire` and its Aspire AppHost and ServiceDefaults template. `init-project` always uses `compose.yaml`; `scaffold.sh --aspire` is now a usage error. Discovery still reports an existing AppHost as `APP_HOST`, and `run-api` still starts it.
+
 ## [0.1.0] - 2026-11-14
 
 First release.

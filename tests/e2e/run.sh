@@ -3,18 +3,17 @@
 # scaffold a new app, add the packages the skills add, build it, add a sample slice (an
 # owner-scoped Notes entity that raises an event), check that every convention check passes, run
 # handler tests on SQLite from the handler-test templates, then create the integration test project
-# from its templates and run its tests against SQL Server in a container. Last, scaffold the
-# --aspire variant and build it.
+# from its templates and run its tests against SQL Server in a container.
 #
-# Needs the .NET 10 SDK, network access to nuget.org and, for the last step, Docker. Not part of
-# tests/run.sh, which needs neither.
+# Needs the .NET 10 SDK, network access to nuget.org and, for the integration tests, Docker. Not
+# part of tests/run.sh, which needs neither.
 #
-# Usage: tests/e2e/run.sh [--keep] [--no-docker] [--no-aspire]
+# Usage: tests/e2e/run.sh [--keep] [--no-docker]
 set -eu
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 plugin="$(cd "$here/../../plugins/dotnet-vsa" && pwd)"
-keep=0; docker=1; aspire=1
-for a in "$@"; do case "$a" in --keep) keep=1 ;; --no-docker) docker=0 ;; --no-aspire) aspire=0 ;; *) echo "unknown option $a" >&2; exit 64 ;; esac; done
+keep=0; docker=1
+for a in "$@"; do case "$a" in --keep) keep=1 ;; --no-docker) docker=0 ;; *) echo "unknown option $a" >&2; exit 64 ;; esac; done
 
 step() { printf '\n== %s\n' "$*"; }
 fail() { echo "e2e: FAIL: $*" >&2; exit 1; }
@@ -98,31 +97,6 @@ else
   step "integration tests against SQL Server in a container"
   docker info > /dev/null 2>&1 || fail "Docker is not running (use --no-docker to skip this step)"
   dotnet test "$app.slnx" -nologo -v q --filter "Category=Integration"
-fi
-
-if [ "$aspire" = 1 ]; then
-  step "the --aspire variant: scaffold, packages, build"
-  aw="$(cd "$(mktemp -d /tmp/dvsa-e2e-aspire.XXXXXX)" && pwd -P)"
-  [ "$keep" = 1 ] && echo "keeping $aw" || trap 'rm -rf "${work:?}" "${aw:?}"' EXIT
-  (cd "$aw" && git init -q)
-  aspire_version="$(v Aspire.AppHost.Sdk)"
-  bash "$plugin/skills/init-project/scaffold.sh" "$aw" "$app" --aspire "$aspire_version" > /dev/null
-  aapi="$aw/src/$app.Api"; adef="$aw/src/$app.ServiceDefaults"; ahost="$aw/src/$app.AppHost"
-  for p in Microsoft.EntityFrameworkCore.SqlServer Microsoft.EntityFrameworkCore.Design \
-           Microsoft.AspNetCore.Authentication.JwtBearer Microsoft.AspNetCore.OpenApi; do
-    (cd "$aapi" && dotnet add package "$p" --version "$(v "$p" 10)" > /dev/null)
-  done
-  (cd "$aapi" && dotnet add package FluentValidation.DependencyInjectionExtensions --version "$(v FluentValidation.DependencyInjectionExtensions)" > /dev/null)
-  for p in Microsoft.Extensions.Http.Resilience Microsoft.Extensions.ServiceDiscovery; do
-    (cd "$adef" && dotnet add package "$p" --version "$(v "$p" 10)" > /dev/null)
-  done
-  for p in OpenTelemetry.Exporter.OpenTelemetryProtocol OpenTelemetry.Extensions.Hosting OpenTelemetry.Instrumentation.AspNetCore \
-           OpenTelemetry.Instrumentation.Http OpenTelemetry.Instrumentation.Runtime; do
-    (cd "$adef" && dotnet add package "$p" --version "$(v "$p")" > /dev/null)
-  done
-  (cd "$ahost" && dotnet add package Aspire.Hosting.SqlServer --version "$aspire_version" > /dev/null)
-  dotnet build "$aw/$app.slnx" -nologo -v q
-  bash "$plugin/scripts/verify-conventions.sh" --root "$aw" --no-build | tail -n 1
 fi
 
 step "e2e passed"

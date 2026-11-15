@@ -22,14 +22,14 @@ The session-start message lists any bundled MCP server that cannot start because
 
 ## Installation
 
-The plugin lives in this repository's marketplace. Add the marketplace once, then install the plugin from it:
+The plugin lives in this repository's marketplace. Install it at project scope, once per .NET repository. From the root of that repository, add the marketplace, then install the plugin from it:
 
-```text
-/plugin marketplace add marlonajgayle/dotnet-claude-plugin
-/plugin install dotnet-vsa@dotnet-claude-plugin
+```sh
+claude plugin marketplace add marlonajgayle/dotnet-claude-plugin --scope project
+claude plugin install dotnet-vsa@dotnet-claude-plugin --scope project
 ```
 
-Plugins are installed for your user account, in `~/.claude`, so the terminal CLI and the VS Code extension share one installation. Install once in either place and both have it.
+Project scope records the marketplace and the plugin in the repository's `.claude/settings.json` (see [Setting it up for a team](#setting-it-up-for-a-team)), so the plugin is active only in that repository, in both the terminal CLI and the VS Code extension. Commit the file and everyone who opens the repository is offered the same plugin. Inside a session you can do the same from the plugin manager: type `/plugins`, choose `dotnet-vsa`, and pick the project scope when it asks where to install.
 
 ### In VS Code
 
@@ -46,12 +46,14 @@ Plugins are installed for your user account, in `~/.claude`, so the terminal CLI
 
    Then quit VS Code completely (`Cmd+Q`, not just closing the window) and start it again so it reads the profile. Starting VS Code from a terminal with `code .` also works. If an environment variable still doesn't reach the extension, set it under `env` in `~/.claude/settings.json` instead. That file is in your home directory and never committed, but it stores the token as plain text.
 
-4. **Add the marketplace and install the plugin.** In the Claude Code panel, type the two commands from [Installation](#installation). The panel also has a plugin manager: type `/plugins` to browse the marketplace and install `dotnet-vsa` from there. If you prefer a terminal, run the same steps in VS Code's integrated terminal:
+4. **Add the marketplace and install the plugin at project scope.** Open your .NET repository as the workspace folder and run the two commands from [Installation](#installation) in VS Code's integrated terminal, which starts in the workspace root:
 
    ```sh
-   claude plugin marketplace add marlonajgayle/dotnet-claude-plugin
-   claude plugin install dotnet-vsa@dotnet-claude-plugin
+   claude plugin marketplace add marlonajgayle/dotnet-claude-plugin --scope project
+   claude plugin install dotnet-vsa@dotnet-claude-plugin --scope project
    ```
+
+   Or, in the Claude Code panel, type `/plugins`, choose `dotnet-vsa` and pick the project scope. Either way, commit the `.claude/settings.json` it writes.
 
 5. **Start a new session** in the panel (the plugin loads when a session starts), with your .NET repository open as the workspace folder. The hooks find the solution and API project from the workspace root.
 
@@ -64,7 +66,7 @@ Plugins are installed for your user account, in `~/.claude`, so the terminal CLI
 
 ### Setting it up for a team
 
-To have everyone who opens the repository offered the plugin, commit a `.claude/settings.json` in that repository:
+A project-scope install writes these entries to the repository's `.claude/settings.json`; you can also write them by hand. Commit the file to have everyone who opens the repository offered the plugin:
 
 ```json
 {
@@ -83,9 +85,11 @@ When a teammate trusts the folder, in VS Code or the CLI, Claude Code asks them 
 
 ### Updating and removing
 
-```text
-/plugin marketplace update dotnet-claude-plugin   # fetch new versions
-/plugin uninstall dotnet-vsa@dotnet-claude-plugin
+From the repository root:
+
+```sh
+claude plugin marketplace update dotnet-claude-plugin            # fetch new versions
+claude plugin uninstall dotnet-vsa@dotnet-claude-plugin --scope project
 ```
 
 After an update, start a new session, then run `/dotnet-vsa:install-rules --check` to see whether the repository's rules have changed.
@@ -156,7 +160,7 @@ The patterns assume slices under `Features/` and entities under `Domain/`. If yo
 | Skill | Purpose |
 |---|---|
 | `ship` | Run the whole pipeline for one change: spec, implement, the three reviewers in parallel, fix rounds, approver, documentation. Commits on the branch; stops for you after the spec, on open questions, on unresolved findings and at the decision. |
-| `init-project` | Create a new API with everything the plugin assumes: `Result`, soft delete and audit fields, the outbox, policy classes, endpoint discovery, validation and `.claude/dotnet-vsa.json`, with SQL Server from `compose.yaml`, or with `--aspire` from an Aspire AppHost plus ServiceDefaults (OpenTelemetry to the dashboard, `/alive`, resilient `HttpClient`s). |
+| `init-project` | Create a new API with everything the plugin assumes: `Result`, soft delete and audit fields, the outbox, policy classes, endpoint discovery, validation and `.claude/dotnet-vsa.json`, with SQL Server from `compose.yaml`. |
 | `verify` | Run the verification checklist and print a pass/fail table. |
 | `add-entity` | Entity, `{Name}Errors`, EF configuration and DbSet, then a migration. |
 | `add-endpoint` | One complete slice (command/query, handler, endpoint, validator) with DI wired. |
@@ -360,7 +364,7 @@ bash tests/run.sh test-guard-bash.sh     # one file
 | `tests/test-format-hook.sh` | That the format hook starts `dotnet format` for C# files only, with a fake `dotnet`. |
 | `tests/test-evals.sh` | That the eval suite is well formed: prompts, graders, the skills they name, and the shared workspace. |
 
-`tests/e2e/run.sh` goes further and needs the .NET 10 SDK, network access and Docker: it scaffolds a project with `init-project`'s template, adds the packages, builds it, adds a sample slice, checks that every convention check passes, runs handler tests built from `write-handler-tests`' templates on SQLite, creates the integration test project from `write-integration-tests`' templates and runs it against SQL Server, and finally scaffolds and builds the `--aspire` variant. Run it after changing any template (`--no-docker` skips the SQL Server tests, `--no-aspire` the Aspire build).
+`tests/e2e/run.sh` goes further and needs the .NET 10 SDK, network access and Docker: it scaffolds a project with `init-project`'s template, adds the packages, builds it, adds a sample slice, checks that every convention check passes, runs handler tests built from `write-handler-tests`' templates on SQLite, creates the integration test project from `write-integration-tests`' templates and runs it against SQL Server. Run it after changing any template (`--no-docker` skips the SQL Server tests).
 
 ### Evals
 

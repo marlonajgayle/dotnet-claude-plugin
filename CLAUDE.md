@@ -19,7 +19,7 @@ This repo is a Claude Code marketplace with one plugin, `plugins/dotnet-vsa`. Th
 - **Never echo a secret.** A message from `guard-config-secrets.sh` names the key or the kind of secret, never the value.
 - **Every hook or check change gets a test case** in the matching `tests/test-*.sh` file: a command that is now blocked and a near miss that is still allowed, or a fixture change that makes a check pass and fail.
 - **Every new skill, agent or rule gets a README row.** `tests/test-static.sh` fails otherwise. A new skill that people reach for by phrasing also gets an eval case.
-- **Templates are verified for real.** After changing anything under a skill's `template*/` or `templates/` folder, run `bash tests/e2e/run.sh` (needs the .NET 10 SDK, network and Docker; `--no-docker` and `--no-aspire` skip parts).
+- **Templates are verified for real.** After changing anything under a skill's `template*/` or `templates/` folder, run `bash tests/e2e/run.sh` (needs the .NET 10 SDK, network and Docker; `--no-docker` skips the SQL Server tests).
 - **Keep the CHANGELOG.** Add a line under `[Unreleased]` for each user-visible change.
 
 ## Commands
