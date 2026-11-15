@@ -84,31 +84,28 @@ Docker (or Podman) runs SQL Server locally and the integration tests. You can sc
 
 ## Part 2: Install the plugin
 
-Plugins install for your user account in `~/.claude`, so the terminal CLI and the VS Code extension share one installation. Do this once, in either place.
+Install the plugin at project scope, once per .NET repository. Project scope records the marketplace and the plugin in the repository's `.claude/settings.json`, so the plugin is active only in that repository, in both the terminal CLI and the VS Code extension, and everyone who opens the repository is offered it once you commit the file (see [Part 9](#part-9-share-the-setup-with-your-team)).
 
 ### Option A: from the Claude Code CLI
 
-1. Start Claude Code in any folder:
+1. Go to the root of your .NET repository:
 
    ```sh
-   claude
+   cd ~/src/Shop
    ```
 
-2. Add the marketplace and install the plugin:
+2. Add the marketplace and install the plugin at project scope:
 
-   ```text
-   /plugin marketplace add marlonajgayle/dotnet-claude-plugin
-   /plugin install dotnet-vsa@dotnet-claude-plugin
+   ```sh
+   claude plugin marketplace add marlonajgayle/dotnet-claude-plugin --scope project
+   claude plugin install dotnet-vsa@dotnet-claude-plugin --scope project
    ```
 
-3. Exit and start a new session. The plugin loads when a session starts.
+3. Commit the `.claude/settings.json` the commands wrote.
 
-You can also run the same steps without opening a session:
+4. Start a session with `claude`. The plugin loads when a session starts.
 
-```sh
-claude plugin marketplace add marlonajgayle/dotnet-claude-plugin
-claude plugin install dotnet-vsa@dotnet-claude-plugin
-```
+Inside a session you can use the plugin manager instead: type `/plugins`, choose `dotnet-vsa`, and pick the project scope when it asks where to install.
 
 ### Option B: from VS Code
 
@@ -116,8 +113,8 @@ claude plugin install dotnet-vsa@dotnet-claude-plugin
 2. Make your environment visible to VS Code. The extension uses VS Code's environment, not that of a terminal you have open, so the `PATH` and token exports from Part 1 must be in your shell profile. Then **quit VS Code completely** (`Cmd+Q` on macOS) and start it again, or start it from a terminal with `code .`.
 
    If a variable still doesn't reach the extension, put it under `env` in `~/.claude/settings.json`. That file is never committed, but it stores the token as plain text.
-3. In the Claude Code panel, type the two commands from Option A, or type `/plugins` and install `dotnet-vsa` from the plugin manager.
-4. Start a new session in the panel with your .NET repository open as the workspace folder.
+3. Open your .NET repository as the workspace folder. Run the two commands from Option A in VS Code's integrated terminal, which starts in the workspace root, or type `/plugins` in the Claude Code panel, choose `dotnet-vsa` and pick the project scope. Commit the `.claude/settings.json` it writes.
+4. Start a new session in the panel.
 
 ---
 
@@ -536,7 +533,7 @@ After every C# edit, Claude also gets advice about the edited file (an unregiste
 
 ### Step 1. Offer the plugin to everyone who opens the repository
 
-Commit `.claude/settings.json`:
+Commit `.claude/settings.json`. The project-scope install in Part 2 writes these entries; you can also write them by hand:
 
 ```json
 {
@@ -585,8 +582,8 @@ Playwright, Sentry, Azure and Azure DevOps aren't bundled. The README's [Optiona
 
 Update:
 
-```text
-/plugin marketplace update dotnet-claude-plugin
+```sh
+claude plugin marketplace update dotnet-claude-plugin
 ```
 
 Then start a new session in each repository and check whether the rules changed:
@@ -597,10 +594,10 @@ Then start a new session in each repository and check whether the rules changed:
 
 The session-start message also tells you when the repository's rules are older than the plugin. Run `/dotnet-vsa:install-rules` to update them and commit the result.
 
-Remove:
+Remove, from the repository root:
 
-```text
-/plugin uninstall dotnet-vsa@dotnet-claude-plugin
+```sh
+claude plugin uninstall dotnet-vsa@dotnet-claude-plugin --scope project
 ```
 
 The files the plugin wrote into your repositories (`.claude/rules/dotnet-vsa/`, `.claude/dotnet-vsa.json`, `.ai/`) stay until you delete them.
