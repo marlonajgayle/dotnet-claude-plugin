@@ -160,7 +160,7 @@ The patterns assume slices under `Features/` and entities under `Domain/`. If yo
 | Skill | Purpose |
 |---|---|
 | `ship` | Run the whole pipeline for one change: spec, implement, the three reviewers in parallel, fix rounds, approver, documentation. Commits on the branch; stops for you after the spec, on open questions, on unresolved findings and at the decision. |
-| `init-project` | Create a new API with everything the plugin assumes: `Result`, soft delete and audit fields, the outbox, policy classes, endpoint discovery, validation and `.claude/dotnet-vsa.json`, with SQL Server from `compose.yaml`, or with `--aspire` from an Aspire AppHost plus ServiceDefaults (OpenTelemetry to the dashboard, `/alive`, resilient `HttpClient`s). |
+| `init-project` | Create a new API with everything the plugin assumes: `Result`, soft delete and audit fields, the outbox, policy classes, endpoint discovery, validation and `.claude/dotnet-vsa.json`, with SQL Server from `compose.yaml`. |
 | `verify` | Run the verification checklist and print a pass/fail table. |
 | `add-entity` | Entity, `{Name}Errors`, EF configuration and DbSet, then a migration. |
 | `add-endpoint` | One complete slice (command/query, handler, endpoint, validator) with DI wired. |
@@ -364,7 +364,7 @@ bash tests/run.sh test-guard-bash.sh     # one file
 | `tests/test-format-hook.sh` | That the format hook starts `dotnet format` for C# files only, with a fake `dotnet`. |
 | `tests/test-evals.sh` | That the eval suite is well formed: prompts, graders, the skills they name, and the shared workspace. |
 
-`tests/e2e/run.sh` goes further and needs the .NET 10 SDK, network access and Docker: it scaffolds a project with `init-project`'s template, adds the packages, builds it, adds a sample slice, checks that every convention check passes, runs handler tests built from `write-handler-tests`' templates on SQLite, creates the integration test project from `write-integration-tests`' templates and runs it against SQL Server, and finally scaffolds and builds the `--aspire` variant. Run it after changing any template (`--no-docker` skips the SQL Server tests, `--no-aspire` the Aspire build).
+`tests/e2e/run.sh` goes further and needs the .NET 10 SDK, network access and Docker: it scaffolds a project with `init-project`'s template, adds the packages, builds it, adds a sample slice, checks that every convention check passes, runs handler tests built from `write-handler-tests`' templates on SQLite, creates the integration test project from `write-integration-tests`' templates and runs it against SQL Server. Run it after changing any template (`--no-docker` skips the SQL Server tests).
 
 ### Evals
 

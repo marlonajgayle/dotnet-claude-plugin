@@ -169,6 +169,16 @@ printf '<Project Sdk="Microsoft.NET.Sdk.Web" />\n' > "$webtests/src/Fixture.Api.
 printf '<Project Sdk="Microsoft.NET.Sdk.Web" />\n' > "$webtests/tests/Web/A.csproj"
 expect_contains 'discover: web SDK test projects are skipped' \
   "$(bash "$PLUGIN_DIR/scripts/discover.sh" "$webtests")" "API_PROJECT=$api/Fixture.Api.csproj"
+expect_contains 'discover: no AppHost without an Aspire project' \
+  "$(bash "$PLUGIN_DIR/scripts/discover.sh" "$webtests")" "$(printf '\nAPP_HOST=\n')"
+
+# --- discovery: an existing Aspire AppHost ----------------------------------------------------
+apphost="$T_TMP/apphost"; t_fixture_repo "$apphost"
+mkdir -p "$apphost/src/Fixture.AppHost"
+printf '<Project Sdk="Aspire.AppHost.Sdk/13.0.0" />\n' > "$apphost/src/Fixture.AppHost/Fixture.AppHost.csproj"
+disc="$(bash "$PLUGIN_DIR/scripts/discover.sh" "$apphost")"
+expect_contains 'discover: an Aspire AppHost is found' "$disc" 'APP_HOST=src/Fixture.AppHost/Fixture.AppHost.csproj'
+expect_contains 'discover: the AppHost is not taken for the API' "$disc" "API_PROJECT=$api/Fixture.Api.csproj"
 
 overridden="$T_TMP/shop-config"; t_fixture_repo "$overridden"
 config "$overridden" '{"reviewsDir": "docs/reviews", "localEnvironment": "Dev", "healthUrl": "https://localhost:5001/healthz"}'

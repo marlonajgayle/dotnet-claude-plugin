@@ -159,19 +159,13 @@ Start Claude Code in the folder and run:
 /dotnet-vsa:init-project Shop
 ```
 
-To run SQL Server and the API through .NET Aspire (with the Aspire dashboard and OpenTelemetry) instead of `compose.yaml`, add `--aspire`:
-
-```text
-/dotnet-vsa:init-project Shop --aspire
-```
-
 Claude shows the files and NuGet packages it will add and waits for your approval. Then it writes the files, adds the packages pinned to .NET 10, builds, and runs the convention checks. On a new project every check reports `PASS` or `n/a`.
 
 You get:
 
 ```text
 Shop.slnx
-compose.yaml                      (not with --aspire)
+compose.yaml                      SQL Server for local development
 .env                              local SQL Server password, git-ignored
 .claude/dotnet-vsa.json           plugin configuration
 src/Shop.Api/
@@ -181,8 +175,6 @@ src/Shop.Api/
   Features/                       your slices
   Infrastructure/                 authorization, rate limiting, endpoints, persistence, outbox
   appsettings.Local.json          local connection string, git-ignored
-src/Shop.AppHost/                 (only with --aspire)
-src/Shop.ServiceDefaults/         (only with --aspire)
 ```
 
 Nothing is committed. `.env` and `appsettings.Local.json` hold a generated password and must stay out of git.
@@ -205,13 +197,9 @@ This adds an xUnit project with three conventions tests that fail when a handler
 
 #### Step 5. Start the database
 
-Without Aspire:
-
 ```sh
 docker compose up -d
 ```
-
-With Aspire, the AppHost starts SQL Server for you; `run-api` (Part 7) starts the AppHost.
 
 #### Step 6. Make your first commit
 
@@ -359,7 +347,7 @@ Integration tests call the endpoint over HTTP against SQL Server in a container 
 /dotnet-vsa:run-api
 ```
 
-Claude starts the database (compose or the Aspire AppHost) and the API in the background and waits for `/health`. Then:
+Claude starts the database (compose, or the Aspire AppHost if your project has one) and the API in the background and waits for `/health`. Then:
 
 ```text
 /dotnet-vsa:smoke-health
